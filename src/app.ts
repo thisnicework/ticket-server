@@ -11,7 +11,7 @@ import { renderAdminPage } from './ui/adminPage.js';
 import { AppError } from './utils/errors.js';
 
 export interface CreateAppOptions {
-  db: Database;
+  db: Database | null;
   platformMasterKey: string;
   enableLogger?: boolean;
 }
@@ -40,8 +40,26 @@ export function createApp(options: CreateAppOptions) {
 
   // 의존성 주입
   app.use('*', async (c, next) => {
-    c.set('db', options.db);
+    if (options.db) {
+      c.set('db', options.db);
+    }
     c.set('platformMasterKey', options.platformMasterKey);
+    await next();
+  });
+
+  // DB 필수 체크 (/v1/* 요청 시)
+  app.use('/v1/*', async (c, next) => {
+    if (c.req.method === 'OPTIONS') {
+      await next();
+      return;
+    }
+    if (!options.db) {
+      throw new AppError(
+        500,
+        'DATABASE_NOT_CONFIGURED',
+        'DATABASE_URL 환경변수가 설정되지 않았습니다. Vercel Project Settings -> Environment Variables를 확인해 주세요.',
+      );
+    }
     await next();
   });
 
@@ -49,7 +67,16 @@ export function createApp(options: CreateAppOptions) {
   app.use('/v1/*', multiTenantCors);
 
   // 헬스 체크 & 어드민 대시보드 UI
-  app.get('/health', (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
+  app.get('/health', (c) =>
+    c.json({
+      ok: true,
+      configured: {
+        databaseUrl: Boolean(options.db),
+        platformMasterKey: Boolean(options.platformMasterKey),
+      },
+      timestamp: new Date().toISOString(),
+    }),
+  );
   app.get('/', (c) => c.redirect('/admin'));
   app.get('/admin', (c) => c.html(renderAdminPage()));
 

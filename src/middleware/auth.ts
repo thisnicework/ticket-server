@@ -31,6 +31,14 @@ export const requirePlatformAuth: MiddlewareHandler<AppEnv> = async (c, next) =>
   const token = extractBearerToken(c.req.header('authorization'));
   const masterKey = c.get('platformMasterKey');
 
+  if (!masterKey) {
+    throw new AppError(
+      500,
+      'MASTER_KEY_NOT_CONFIGURED',
+      'PLATFORM_MASTER_KEY 환경변수가 설정되지 않았습니다. Vercel Environment Variables를 확인해 주세요.',
+    );
+  }
+
   if (!token || !timingSafeEqualStr(token, masterKey)) {
     throw new AppError(401, 'UNAUTHORIZED', 'Invalid platform master key');
   }
