@@ -591,6 +591,65 @@ describe('Full Reservation E2E Integration Tests (Real PostgreSQL via PGlite)', 
     });
     expect(afterCancelLookup.reservations).toHaveLength(0);
 
+    // 8-7b. 취소로 복구된 좌석을 다시 예매할 수 있는지 + 총수량 축소 후 취소 시 CHECK 제약조건 위반 없는지 검증
+    // 현재 선착순 5매(limitedTicketId)는 5매 모두 예매되어 잔여 0매 상태 -> 1건 취소하면 잔여 1매로 복구되어 재예매 가능해야 함
+    const limReservations = adminList.body.reservations.filter((r: any) =>
+      r.items.some((i: any) => i.ticketTypeId === limitedTicketId),
+    );
+    expect(limReservations).toHaveLength(5);
+
+    const cancelOneLim = await reqJson(
+      `/v1/platform/tenants/${tenantAId}/reservations/${limReservations[0].id}`,
+      { method: 'DELETE', headers: platformHeaders },
+    );
+    expect(cancelOneLim.status).toBe(200);
+
+    // 복구된 1매를 새 예매자가 즉시 예매 성공!
+    const rebookLim = await sdk.reservations.create({
+      scheduleId: openScheduleId,
+      customerName: '대기예매성공자',
+      customerPhone: '010-5555-6666',
+      items: [{ ticketTypeId: limitedTicketId, quantity: 1 }],
+    });
+    expect(rebookLim.reservationCode).toMatch(/^RSV-/);
+
+    // 8-7c. 행사/회차 숨김(isActive: false), 테넌트 비활성화, API Key 폐기 시 예매 차단 검증
+    const tempKeyRes = await reqJson(`/v1/platform/tenants/${tenantAId}/api-keys`, {
+      method: 'POST',
+      headers: platformHeaders,
+      body: JSON.stringify({ name: '임시키', scope: 'public' }),
+    });
+    const tempKeyId = tempKeyRes.body.id;
+    const tempRawKey = tempKeyRes.body.apiKey;
+
+    await reqJson(`/v1/platform/tenants/${tenantAId}/api-keys/${tempKeyId}`, {
+      method: 'DELETE',
+      headers: platformHeaders,
+    });
+    const revokedAttempt = await reqJson('/v1/events', {
+      headers: { 'X-API-Key': tempRawKey },
+    });
+    expect(revokedAttempt.status).toBe(401);
+    expect(revokedAttempt.body.error.code).toBe('INVALID_API_KEY');
+
+    // 테넌트 일시 비활성화 시 예매 차단(403 TENANT_INACTIVE) 후 다시 활성화
+    await reqJson(`/v1/platform/tenants/${tenantAId}`, {
+      method: 'PATCH',
+      headers: platformHeaders,
+      body: JSON.stringify({ isActive: false }),
+    });
+    const inactiveAttempt = await reqJson('/v1/events', {
+      headers: { 'X-API-Key': tenantAPubKey },
+    });
+    expect(inactiveAttempt.status).toBe(403);
+    expect(inactiveAttempt.body.error.code).toBe('TENANT_INACTIVE');
+
+    await reqJson(`/v1/platform/tenants/${tenantAId}`, {
+      method: 'PATCH',
+      headers: platformHeaders,
+      body: JSON.stringify({ isActive: true }),
+    });
+
     // 8-8. 어드민 대시보드 초기 로딩 3개 API(overview / api-keys / reservations) 모두 200 정상 반환 검증
     const [ov, ks, rs] = await Promise.all([
       reqJson(`/v1/platform/tenants/${tenantAId}/overview`, { headers: platformHeaders }),
