@@ -463,27 +463,6 @@ export function renderAdminPage(): string {
     </main>
   </div>
 
-  <!-- 행사 예매 오픈/마감 일괄 설정 다이얼로그 -->
-  <dialog id="bulkSalesDialog">
-    <h3>예매 오픈/마감 일시 일괄 설정</h3>
-    <p class="sub-text" style="margin:0 0 12px;">이 행사에 등록된 모든 회차에 동일한 예매 오픈/마감 일시를 적용합니다.</p>
-    <form id="bulkSalesForm">
-      <input type="hidden" name="eventId" />
-      <div class="field" style="margin-bottom:10px;">
-        <label>예매 오픈 일시 <span class="sub-text">(비워두면 즉시 오픈)</span></label>
-        <input name="salesOpenAt" type="datetime-local" />
-      </div>
-      <div class="field" style="margin-bottom:14px;">
-        <label>예매 마감 일시 <span class="sub-text">(비워두면 마감 없음)</span></label>
-        <input name="salesCloseAt" type="datetime-local" />
-      </div>
-      <div class="row" style="justify-content:flex-end;">
-        <button type="button" id="closeBulkSalesBtn">취소</button>
-        <button type="submit" class="btn-primary">전체 회차에 적용</button>
-      </div>
-    </form>
-  </dialog>
-
   <!-- 회차 수정 다이얼로그 (브라우저 기본 dialog) -->
   <dialog id="editScheduleDialog">
     <h3>회차 수정</h3>
@@ -778,14 +757,9 @@ const result = await ticketing.reservations.create({
                 <button type="button" class="btn-copy" data-copy="\${ev.id}" data-copy-label="Event ID 복사됨">복사</button>
               </div>
             </div>
-            <div class="row">
-              \${ev.schedules.length > 0
-                ? '<button type="button" class="btn-sm" data-action="bulk-sales" data-id="' + ev.id + '" data-open="' + (ev.schedules[0].salesOpenAt ?? '') + '" data-close="' + (ev.schedules[0].salesCloseAt ?? '') + '">예매 오픈시간 일괄 설정</button>'
-                : ''}
-              <button type="button" class="btn-sm" data-action="toggle-event" data-id="\${ev.id}" data-active="\${ev.isActive}">
-                \${ev.isActive ? '숨기기' : '노출하기'}
-              </button>
-            </div>
+            <button type="button" class="btn-sm" data-action="toggle-event" data-id="\${ev.id}" data-active="\${ev.isActive}">
+              \${ev.isActive ? '숨기기' : '노출하기'}
+            </button>
           </div>
 
           <details>
@@ -826,9 +800,10 @@ const result = await ticketing.reservations.create({
                       \${sc.endsAt ? '<span class="sub-text">~ ' + fmtDate(sc.endsAt) + '</span>' : ''}
                       <span class="badge \${sc.isActive ? 'badge-green' : 'badge-gray'}">\${sc.isActive ? '노출 중' : '숨김'}</span>
                     </div>
-                    \${(sc.salesOpenAt || sc.salesCloseAt)
-                      ? '<div class="sub-text" style="margin-top:2px;">예매 기간: ' + (sc.salesOpenAt ? fmtDate(sc.salesOpenAt) : '즉시') + ' ~ ' + (sc.salesCloseAt ? fmtDate(sc.salesCloseAt) : '제한 없음') + '</div>'
-                      : ''}
+                    <div class="sub-text" style="margin-top:3px;">
+                      예매 오픈: <strong>\${sc.salesOpenAt ? fmtDate(sc.salesOpenAt) : '즉시 오픈'}</strong>
+                      · 마감: <strong>\${sc.salesCloseAt ? fmtDate(sc.salesCloseAt) : '제한 없음'}</strong>
+                    </div>
                   </div>
                   <div class="row">
                     <span class="sub-text">
@@ -939,16 +914,6 @@ const result = await ticketing.reservations.create({
         });
       });
 
-      wrap.querySelectorAll('button[data-action="bulk-sales"]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const form = $('bulkSalesForm');
-          form.elements.eventId.value = btn.dataset.id;
-          form.elements.salesOpenAt.value = toLocalInputValue(btn.dataset.open);
-          form.elements.salesCloseAt.value = toLocalInputValue(btn.dataset.close);
-          $('bulkSalesDialog').showModal();
-        });
-      });
-
       wrap.querySelectorAll('form[data-form="add-schedule"]').forEach((form) => {
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
@@ -1035,30 +1000,6 @@ const result = await ticketing.reservations.create({
 
       bindCopyButtons();
     }
-
-    $('closeBulkSalesBtn').addEventListener('click', () => $('bulkSalesDialog').close());
-
-    $('bulkSalesForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const openRaw = String(fd.get('salesOpenAt') || '').trim();
-      const closeRaw = String(fd.get('salesCloseAt') || '').trim();
-      try {
-        const res = await api(
-          '/v1/platform/tenants/' + state.selectedTenantId + '/events/' + fd.get('eventId') + '/sales-window',
-          {
-            method: 'PATCH',
-            body: JSON.stringify({
-              salesOpenAt: openRaw ? new Date(openRaw).toISOString() : null,
-              salesCloseAt: closeRaw ? new Date(closeRaw).toISOString() : null,
-            }),
-          },
-        );
-        $('bulkSalesDialog').close();
-        showToast(res.updatedCount + '개 회차에 예매 오픈/마감 일시를 적용했습니다.');
-        await loadTenantData();
-      } catch (err) { showToast(err.message, true); }
-    });
 
     $('closeScheduleDialogBtn').addEventListener('click', () => $('editScheduleDialog').close());
 
