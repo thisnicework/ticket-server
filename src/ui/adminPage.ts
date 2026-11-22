@@ -463,6 +463,40 @@ export function renderAdminPage(): string {
     </main>
   </div>
 
+  <!-- 회차 수정 다이얼로그 (브라우저 기본 dialog) -->
+  <dialog id="editScheduleDialog">
+    <h3>회차 수정</h3>
+    <form id="editScheduleForm">
+      <input type="hidden" name="id" />
+      <div class="field" style="margin-bottom:10px;">
+        <label>시작 일시 *</label>
+        <input name="startsAt" type="datetime-local" required />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>종료 일시 <span class="sub-text">(선택)</span></label>
+        <input name="endsAt" type="datetime-local" />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>예매 오픈 일시 <span class="sub-text">(비워두면 즉시 오픈)</span></label>
+        <input name="salesOpenAt" type="datetime-local" />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>예매 마감 일시 <span class="sub-text">(비워두면 마감 없음)</span></label>
+        <input name="salesCloseAt" type="datetime-local" />
+      </div>
+      <div class="row" style="margin-bottom:14px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input name="isActive" type="checkbox" style="width:auto;" />
+          <span>예매 노출 활성화</span>
+        </label>
+      </div>
+      <div class="row" style="justify-content:flex-end;">
+        <button type="button" id="closeScheduleDialogBtn">취소</button>
+        <button type="submit" class="btn-primary">저장</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- 권종 수정 다이얼로그 (브라우저 기본 dialog) -->
   <dialog id="editTicketDialog">
     <h3>티켓 권종 수정</h3>
@@ -520,6 +554,16 @@ export function renderAdminPage(): string {
         year: 'numeric', month: '2-digit', day: '2-digit',
         weekday: 'short', hour: '2-digit', minute: '2-digit',
       });
+    }
+
+    function toLocalInputValue(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, '0');
+      return (
+        d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+      );
     }
 
     function fmtPhone(raw) {
@@ -743,12 +787,27 @@ const result = await ticketing.reservations.create({
               <div class="schedule-item">
                 <div class="between">
                   <div>
-                    <strong>\${fmtDate(sc.startsAt)}</strong>
-                    \${sc.endsAt ? '<span class="sub-text"> ~ ' + fmtDate(sc.endsAt) + '</span>' : ''}
+                    <div class="row">
+                      <strong>\${fmtDate(sc.startsAt)}</strong>
+                      \${sc.endsAt ? '<span class="sub-text">~ ' + fmtDate(sc.endsAt) + '</span>' : ''}
+                      <span class="badge \${sc.isActive ? 'badge-green' : 'badge-gray'}">\${sc.isActive ? '노출 중' : '숨김'}</span>
+                    </div>
+                    \${(sc.salesOpenAt || sc.salesCloseAt)
+                      ? '<div class="sub-text" style="margin-top:2px;">예매 기간: ' + (sc.salesOpenAt ? fmtDate(sc.salesOpenAt) : '즉시') + ' ~ ' + (sc.salesCloseAt ? fmtDate(sc.salesCloseAt) : '제한 없음') + '</div>'
+                      : ''}
                   </div>
-                  <div class="sub-text">
-                    Schedule ID: <code>\${sc.id}</code>
-                    <button type="button" class="btn-copy" data-copy="\${sc.id}" data-copy-label="Schedule ID 복사됨">복사</button>
+                  <div class="row">
+                    <span class="sub-text">
+                      Schedule ID: <code>\${sc.id}</code>
+                      <button type="button" class="btn-copy" data-copy="\${sc.id}" data-copy-label="Schedule ID 복사됨">복사</button>
+                    </span>
+                    <button type="button" class="btn-sm" data-action="edit-schedule"
+                      data-id="\${sc.id}"
+                      data-starts="\${sc.startsAt}"
+                      data-ends="\${sc.endsAt ?? ''}"
+                      data-open="\${sc.salesOpenAt ?? ''}"
+                      data-close="\${sc.salesCloseAt ?? ''}"
+                      data-active="\${sc.isActive}">회차 수정</button>
                   </div>
                 </div>
 
@@ -883,6 +942,20 @@ const result = await ticketing.reservations.create({
         });
       });
 
+      wrap.querySelectorAll('button[data-action="edit-schedule"]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const dialog = $('editScheduleDialog');
+          const form = $('editScheduleForm');
+          form.elements.id.value = btn.dataset.id;
+          form.elements.startsAt.value = toLocalInputValue(btn.dataset.starts);
+          form.elements.endsAt.value = toLocalInputValue(btn.dataset.ends);
+          form.elements.salesOpenAt.value = toLocalInputValue(btn.dataset.open);
+          form.elements.salesCloseAt.value = toLocalInputValue(btn.dataset.close);
+          form.elements.isActive.checked = btn.dataset.active === 'true';
+          dialog.showModal();
+        });
+      });
+
       wrap.querySelectorAll('button[data-action="edit-tt"]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const dialog = $('editTicketDialog');
@@ -898,6 +971,32 @@ const result = await ticketing.reservations.create({
 
       bindCopyButtons();
     }
+
+    $('closeScheduleDialogBtn').addEventListener('click', () => $('editScheduleDialog').close());
+
+    $('editScheduleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const fd = new FormData(form);
+      const endsRaw = String(fd.get('endsAt') || '').trim();
+      const openRaw = String(fd.get('salesOpenAt') || '').trim();
+      const closeRaw = String(fd.get('salesCloseAt') || '').trim();
+      try {
+        await api('/v1/platform/tenants/' + state.selectedTenantId + '/schedules/' + fd.get('id'), {
+          method: 'PATCH',
+          body: JSON.stringify({
+            startsAt: new Date(String(fd.get('startsAt'))).toISOString(),
+            endsAt: endsRaw ? new Date(endsRaw).toISOString() : null,
+            salesOpenAt: openRaw ? new Date(openRaw).toISOString() : null,
+            salesCloseAt: closeRaw ? new Date(closeRaw).toISOString() : null,
+            isActive: form.elements.isActive.checked,
+          }),
+        });
+        $('editScheduleDialog').close();
+        showToast('회차 정보를 수정했습니다.');
+        await loadTenantData();
+      } catch (err) { showToast(err.message, true); }
+    });
 
     $('closeDialogBtn').addEventListener('click', () => $('editTicketDialog').close());
 

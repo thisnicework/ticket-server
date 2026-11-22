@@ -631,6 +631,80 @@ platformRouter.openapi(platformCreateScheduleRoute, async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
+const platformUpdateScheduleRoute = createRoute({
+  method: 'patch',
+  path: '/tenants/{tenantId}/schedules/{scheduleId}',
+  tags: ['Platform'],
+  summary: '특정 회차 일시/예매기간/노출 상태 수정',
+  request: {
+    params: z.object({ tenantId: z.string().uuid(), scheduleId: z.string().uuid() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            startsAt: z.string().datetime().optional(),
+            endsAt: z.string().datetime().nullable().optional(),
+            salesOpenAt: z.string().datetime().nullable().optional(),
+            salesCloseAt: z.string().datetime().nullable().optional(),
+            isActive: z.boolean().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: '수정된 회차',
+      content: {
+        'application/json': {
+          schema: z.object({
+            id: z.string().uuid(),
+            startsAt: z.string(),
+            endsAt: z.string().nullable(),
+            salesOpenAt: z.string().nullable(),
+            salesCloseAt: z.string().nullable(),
+            isActive: z.boolean(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+platformRouter.openapi(platformUpdateScheduleRoute, async (c) => {
+  const db = c.get('db');
+  const { tenantId, scheduleId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const [updated] = await db
+    .update(schedules)
+    .set({
+      ...(body.startsAt !== undefined ? { startsAt: new Date(body.startsAt) } : {}),
+      ...(body.endsAt !== undefined ? { endsAt: body.endsAt ? new Date(body.endsAt) : null } : {}),
+      ...(body.salesOpenAt !== undefined
+        ? { salesOpenAt: body.salesOpenAt ? new Date(body.salesOpenAt) : null }
+        : {}),
+      ...(body.salesCloseAt !== undefined
+        ? { salesCloseAt: body.salesCloseAt ? new Date(body.salesCloseAt) : null }
+        : {}),
+      ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(schedules.id, scheduleId), eq(schedules.tenantId, tenantId)))
+    .returning();
+
+  if (!updated) throw new AppError(404, 'SCHEDULE_NOT_FOUND', '회차를 찾을 수 없습니다.');
+
+  return c.json({
+    id: updated.id,
+    startsAt: updated.startsAt.toISOString(),
+    endsAt: updated.endsAt?.toISOString() ?? null,
+    salesOpenAt: updated.salesOpenAt?.toISOString() ?? null,
+    salesCloseAt: updated.salesCloseAt?.toISOString() ?? null,
+    isActive: updated.isActive,
+  });
+});
+
 // 10. 플랫폼 어드민: 권종 생성 / 수정
 const platformCreateTicketTypeRoute = createRoute({
   method: 'post',
