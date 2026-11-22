@@ -808,6 +808,9 @@ const result = await ticketing.reservations.create({
                       data-open="\${sc.salesOpenAt ?? ''}"
                       data-close="\${sc.salesCloseAt ?? ''}"
                       data-active="\${sc.isActive}">회차 수정</button>
+                    <button type="button" class="btn-danger btn-sm" data-action="delete-schedule"
+                      data-id="\${sc.id}"
+                      data-label="\${esc(fmtDate(sc.startsAt))}">삭제</button>
                   </div>
                 </div>
 
@@ -953,6 +956,19 @@ const result = await ticketing.reservations.create({
           form.elements.salesCloseAt.value = toLocalInputValue(btn.dataset.close);
           form.elements.isActive.checked = btn.dataset.active === 'true';
           dialog.showModal();
+        });
+      });
+
+      wrap.querySelectorAll('button[data-action="delete-schedule"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('[' + btn.dataset.label + '] 회차와 소속 권종을 삭제하시겠습니까?\\n(이미 예매 내역이 있는 회차는 삭제되지 않습니다.)')) return;
+          try {
+            await api('/v1/platform/tenants/' + state.selectedTenantId + '/schedules/' + btn.dataset.id, {
+              method: 'DELETE',
+            });
+            showToast('회차가 삭제되었습니다.');
+            await loadTenantData();
+          } catch (err) { showToast(err.message, true); }
         });
       });
 

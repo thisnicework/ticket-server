@@ -705,6 +705,61 @@ platformRouter.openapi(platformUpdateScheduleRoute, async (c) => {
   });
 });
 
+const platformDeleteScheduleRoute = createRoute({
+  method: 'delete',
+  path: '/tenants/{tenantId}/schedules/{scheduleId}',
+  tags: ['Platform'],
+  summary: '특정 회차 삭제 (예매 내역이 없는 경우에만 삭제 가능)',
+  request: {
+    params: z.object({ tenantId: z.string().uuid(), scheduleId: z.string().uuid() }),
+  },
+  responses: {
+    200: {
+      description: '삭제 완료',
+      content: {
+        'application/json': {
+          schema: z.object({ deleted: z.boolean(), id: z.string().uuid() }),
+        },
+      },
+    },
+  },
+});
+
+platformRouter.openapi(platformDeleteScheduleRoute, async (c) => {
+  const db = c.get('db');
+  const { tenantId, scheduleId } = c.req.valid('param');
+
+  const existingRows = await db
+    .select({ id: schedules.id })
+    .from(schedules)
+    .where(and(eq(schedules.id, scheduleId), eq(schedules.tenantId, tenantId)))
+    .limit(1);
+
+  if (!existingRows[0]) {
+    throw new AppError(404, 'SCHEDULE_NOT_FOUND', '회차를 찾을 수 없습니다.');
+  }
+
+  const resCountRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(reservations)
+    .where(and(eq(reservations.tenantId, tenantId), eq(reservations.scheduleId, scheduleId)));
+
+  const reservationCount = resCountRows[0]?.count ?? 0;
+  if (reservationCount > 0) {
+    throw new AppError(
+      409,
+      'SCHEDULE_HAS_RESERVATIONS',
+      `이미 ${reservationCount}건의 예매 내역이 있어 삭제할 수 없습니다. 대신 "회차 수정"에서 예매 노출을 꺼서 숨김 처리해 주세요.`,
+    );
+  }
+
+  await db
+    .delete(schedules)
+    .where(and(eq(schedules.id, scheduleId), eq(schedules.tenantId, tenantId)));
+
+  return c.json({ deleted: true, id: scheduleId });
+});
+
 // 10. 플랫폼 어드민: 권종 생성 / 수정
 const platformCreateTicketTypeRoute = createRoute({
   method: 'post',
