@@ -580,6 +580,54 @@ platformRouter.openapi(platformUpdateEventRoute, async (c) => {
   return c.json({ id: updated.id, isActive: updated.isActive });
 });
 
+const platformBulkSalesWindowRoute = createRoute({
+  method: 'patch',
+  path: '/tenants/{tenantId}/events/{eventId}/sales-window',
+  tags: ['Platform'],
+  summary: '특정 행사의 모든 회차에 예매 오픈/마감 일시 일괄 적용',
+  request: {
+    params: z.object({ tenantId: z.string().uuid(), eventId: z.string().uuid() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            salesOpenAt: z.string().datetime().nullable(),
+            salesCloseAt: z.string().datetime().nullable(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: '일괄 적용 완료',
+      content: {
+        'application/json': {
+          schema: z.object({ updatedCount: z.number().int() }),
+        },
+      },
+    },
+  },
+});
+
+platformRouter.openapi(platformBulkSalesWindowRoute, async (c) => {
+  const db = c.get('db');
+  const { tenantId, eventId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const updated = await db
+    .update(schedules)
+    .set({
+      salesOpenAt: body.salesOpenAt ? new Date(body.salesOpenAt) : null,
+      salesCloseAt: body.salesCloseAt ? new Date(body.salesCloseAt) : null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(schedules.tenantId, tenantId), eq(schedules.eventId, eventId)))
+    .returning({ id: schedules.id });
+
+  return c.json({ updatedCount: updated.length });
+});
+
 // 9. 플랫폼 어드민: 회차 생성
 const platformCreateScheduleRoute = createRoute({
   method: 'post',
