@@ -4,7 +4,7 @@ export function renderAdminPage(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ticket-server | 예매 서버 관리자</title>
+  <title>hyunjun-ticket-server</title>
   <style>
     :root {
       --bg: #f6f7f9;
@@ -245,7 +245,7 @@ export function renderAdminPage(): string {
   <div class="container">
     <header class="topbar">
       <div>
-        <h1>예매 서버 관리자 <span class="sub-text" style="font-weight:500;">(ticket-server)</span></h1>
+        <h1>hyunjun-ticket-server</h1>
       </div>
       <div class="topbar-links">
         <a href="/docs" target="_blank">API 문서</a>
