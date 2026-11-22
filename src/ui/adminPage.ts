@@ -6,186 +6,492 @@ export function renderAdminPage(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ticket-server | 예매 서버 관리자</title>
   <style>
-    body { max-width: 1080px; margin: 24px auto; padding: 0 16px; line-height: 1.5; }
-    .hidden { display: none; }
-    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-    th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
-    fieldset { margin: 12px 0; padding: 12px; }
-    pre { overflow-x: auto; padding: 10px; border: 1px solid #999; }
-    details { margin: 8px 0; }
-    summary { cursor: pointer; font-weight: bold; }
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --sub-bg: #f8fafc;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --green: #15803d;
+      --green-bg: #dcfce7;
+      --amber: #b45309;
+      --amber-bg: #fef3c7;
+      --red: #b91c1c;
+      --red-bg: #fee2e2;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .container { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+    .hidden { display: none !important; }
+
+    /* Header */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .topbar h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    .topbar-links { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .topbar-links a { color: var(--muted); text-decoration: none; }
+    .topbar-links a:hover { color: var(--primary); text-decoration: underline; }
+
+    /* Cards & Layout */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .card-title h2, .card-title h3 { margin: 0; font-size: 16px; }
+    .sub-text { color: var(--muted); font-size: 12.5px; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .between { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* Forms & Buttons */
+    input, select, textarea {
+      font: inherit;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #fff;
+      color: var(--text);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+    button {
+      font: inherit;
+      cursor: pointer;
+      padding: 7px 13px;
+      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: var(--text);
+      font-weight: 500;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    button:hover { background: #f1f5f9; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-danger { color: var(--red); border-color: #fecaca; background: #fff; }
+    .btn-danger:hover { background: var(--red-bg); }
+    .btn-sm { padding: 4px 9px; font-size: 12px; }
+    .btn-copy { padding: 2px 7px; font-size: 11px; color: var(--muted); border-color: var(--border); }
+    .btn-copy:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 12px; font-weight: 600; color: #475569; }
+    .field input, .field select, .field textarea { width: 100%; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .tab-btn:hover { background: #e2e8f0; color: var(--text); }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .stat .label { font-size: 12px; color: var(--muted); }
+    .stat .num { font-size: 22px; font-weight: 700; margin-top: 2px; }
+
+    /* Badges & Code */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+    .badge-gray { background: #e2e8f0; color: #475569; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 14px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12.5px;
+      margin: 8px 0 0;
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+
+    /* Details */
+    details {
+      background: var(--sub-bg);
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 10px 0;
+    }
+    details summary { cursor: pointer; font-weight: 600; color: var(--primary); user-select: none; }
+
+    /* Schedule & Tables */
+    .schedule-item {
+      background: var(--sub-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; background: #fff; border-radius: 6px; overflow: hidden; }
+    th, td { border-bottom: 1px solid var(--border); padding: 9px 10px; text-align: left; font-size: 13px; }
+    th { background: #f8fafc; color: var(--muted); font-size: 12px; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    progress { width: 110px; height: 8px; accent-color: var(--primary); }
+
+    /* Alert & Banner */
+    .banner {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    /* Native Dialog */
+    dialog {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      width: min(440px, 92vw);
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+    }
+    dialog::backdrop { background: rgba(15, 23, 42, 0.45); }
+    dialog h3 { margin: 0 0 14px; font-size: 16px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #0f172a;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      z-index: 999;
+    }
+    .toast.error { background: var(--red); }
+
+    /* Login */
+    .login-box { max-width: 420px; margin: 60px auto; }
+    @media (max-width: 680px) {
+      .stats { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>예매 서버 관리자 (ticket-server)</h1>
-    <p>
-      <a href="/docs" target="_blank">API 문서 (/docs)</a> |
-      <a href="/health" target="_blank">서버 상태 (/health)</a>
-      <span id="logoutWrap" class="hidden"> | <button id="logoutBtn" type="button">로그아웃</button></span>
-    </p>
-    <hr />
-  </header>
+  <div class="container">
+    <header class="topbar">
+      <div>
+        <h1>예매 서버 관리자 <span class="sub-text" style="font-weight:500;">(ticket-server)</span></h1>
+      </div>
+      <div class="topbar-links">
+        <a href="/docs" target="_blank">API 문서</a>
+        <span>·</span>
+        <a href="/health" target="_blank">서버 상태</a>
+        <button id="logoutBtn" type="button" class="btn-sm hidden">로그아웃</button>
+      </div>
+    </header>
 
-  <!-- 로그인 -->
-  <section id="loginView">
-    <fieldset>
-      <legend>관리자 로그인</legend>
+    <!-- 로그인 -->
+    <section id="loginView" class="card login-box">
+      <h2 style="margin:0 0 6px;font-size:18px;">관리자 로그인</h2>
+      <p class="sub-text" style="margin:0 0 16px;">Vercel 환경변수에 설정한 <code>PLATFORM_MASTER_KEY</code>를 입력해 주세요.</p>
       <form id="loginForm">
-        <p>
-          <label for="masterKeyInput">PLATFORM_MASTER_KEY:</label>
-          <input id="masterKeyInput" type="password" size="40" required />
-          <button type="submit">접속</button>
-        </p>
+        <div class="field" style="margin-bottom:12px;">
+          <label for="masterKeyInput">마스터 키</label>
+          <input id="masterKeyInput" type="password" placeholder="PLATFORM_MASTER_KEY 입력" required autofocus />
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%;">접속하기</button>
       </form>
-      <p id="loginError" class="hidden"></p>
-    </fieldset>
-  </section>
+      <p id="loginError" class="hidden" style="color:var(--red);font-size:13px;margin:10px 0 0;"></p>
+    </section>
 
-  <!-- 메인 관리 화면 -->
-  <main id="appView" class="hidden">
-    <p id="statusMsg"></p>
+    <!-- 메인 화면 -->
+    <main id="appView" class="hidden">
+      <!-- 사이트 선택 카드 -->
+      <section class="card">
+        <div class="between" style="margin-bottom:8px;">
+          <div class="row">
+            <strong>예매 사이트:</strong>
+            <select id="tenantSelect" style="min-width:220px;font-weight:600;"></select>
+            <span id="tenantStatusBadge" class="badge badge-green">활성</span>
+          </div>
+          <div class="row">
+            <button id="toggleTenantActiveBtn" type="button" class="btn-sm">활성/비활성 전환</button>
+            <button id="refreshBtn" type="button" class="btn-sm">새로고침</button>
+          </div>
+        </div>
+        <div id="tenantMeta" class="sub-text"></div>
 
-    <!-- 1. 사이트(Tenant) 선택 & 등록 -->
-    <fieldset>
-      <legend>1. 예매 사이트(Tenant) 선택</legend>
-      <p>
-        <label for="tenantSelect">사이트 선택:</label>
-        <select id="tenantSelect"></select>
-        <button id="refreshBtn" type="button">새로고침</button>
-        <button id="toggleTenantActiveBtn" type="button">활성/비활성 전환</button>
-      </p>
-      <p id="tenantMeta"></p>
-
-      <details>
-        <summary>+ 새 예매 사이트 등록</summary>
-        <form id="newTenantForm">
-          <p>
-            <label>사이트 이름: <input name="name" required placeholder="2026 봄 정기공연" /></label>
-            <label>Slug(영문소문자/숫자/-): <input name="slug" required pattern="[a-z0-9-]+" placeholder="spring-2026" /></label>
-          </p>
-          <p>
-            <label>허용 도메인(쉼표 구분, 선택): <input name="origins" size="50" placeholder="https://site.com, http://localhost:5173" /></label>
-            <button type="submit">사이트 등록</button>
-          </p>
-        </form>
-      </details>
-    </fieldset>
-
-    <div id="emptyState" class="hidden">
-      <p>등록된 예매 사이트가 없습니다. 위에서 "+ 새 예매 사이트 등록"을 열어 첫 사이트를 만들어 주세요.</p>
-    </div>
-
-    <div id="tenantWorkspace" class="hidden">
-      <nav>
-        <button type="button" class="tabBtn" data-tab="events">[1] 행사 및 수량 관리</button>
-        <button type="button" class="tabBtn" data-tab="reservations">[2] 예매자 명단</button>
-        <button type="button" class="tabBtn" data-tab="keys">[3] API Key 및 연동</button>
-      </nav>
-      <hr />
-
-      <!-- 탭 1: 행사 & 수량 -->
-      <section id="tab-events">
-        <p id="statsLine"></p>
-
-        <details>
-          <summary>+ 새 행사 등록</summary>
-          <form id="newEventForm">
-            <p>
-              <label>행사명*: <input name="title" required size="30" /></label>
-              <label>장소: <input name="venue" size="25" /></label>
-            </p>
-            <p>
-              <label>설명:<br /><textarea name="description" rows="2" cols="60"></textarea></label>
-            </p>
-            <p><button type="submit">행사 등록</button></p>
+        <details id="newTenantDetails">
+          <summary>+ 새 예매 사이트 등록</summary>
+          <form id="newTenantForm">
+            <div class="form-grid">
+              <div class="field">
+                <label>사이트 이름 *</label>
+                <input name="name" required placeholder="예: 2026 봄 정기공연" />
+              </div>
+              <div class="field">
+                <label>Slug (영문 소문자, 숫자, -) *</label>
+                <input name="slug" required pattern="[a-z0-9-]+" placeholder="예: spring-2026" />
+              </div>
+              <div class="field">
+                <label>허용 도메인 (선택, 쉼표 구분)</label>
+                <input name="origins" placeholder="비워두면 전체 허용" />
+              </div>
+            </div>
+            <div style="margin-top:10px;">
+              <button type="submit" class="btn-primary btn-sm">사이트 등록</button>
+            </div>
           </form>
         </details>
-
-        <div id="eventsContainer"></div>
       </section>
 
-      <!-- 탭 2: 예매자 명단 -->
-      <section id="tab-reservations" class="hidden">
-        <h2>예매자 명단</h2>
-        <p>
-          <label>회차: <select id="filterSchedule"><option value="">전체 회차</option></select></label>
-          <label>이름: <input id="filterName" size="12" /></label>
-          <label>연락처: <input id="filterPhone" size="16" /></label>
-          <button id="searchReservationsBtn" type="button">조회</button>
-          <button id="exportCsvBtn" type="button">CSV 다운로드</button>
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th>예매번호</th>
-              <th>행사 / 회차</th>
-              <th>이름</th>
-              <th>연락처</th>
-              <th>선택 권종</th>
-              <th>총 수량</th>
-              <th>예매 일시</th>
-            </tr>
-          </thead>
-          <tbody id="reservationsTbody"></tbody>
-        </table>
-      </section>
+      <div id="emptyState" class="card hidden" style="text-align:center;padding:40px 20px;">
+        <p style="margin:0 0 6px;font-weight:600;">등록된 예매 사이트가 아직 없습니다.</p>
+        <p class="sub-text" style="margin:0;">위의 <strong>"+ 새 예매 사이트 등록"</strong>을 눌러 첫 사이트를 만들어 보세요.</p>
+      </div>
 
-      <!-- 탭 3: API Key & 연동 -->
-      <section id="tab-keys" class="hidden">
-        <h2>API Key 관리</h2>
+      <div id="tenantWorkspace" class="hidden">
+        <!-- 탭 -->
+        <nav class="tabs">
+          <button type="button" class="tab-btn active" data-tab="events">행사 · 수량 관리</button>
+          <button type="button" class="tab-btn" data-tab="reservations">예매자 명단</button>
+          <button type="button" class="tab-btn" data-tab="keys">API Key · 연동</button>
+        </nav>
 
-        <fieldset id="newKeyBanner" class="hidden">
-          <legend>새 API Key 발급 완료 (1회만 표시)</legend>
-          <p>
-            <code id="issuedKeyText"></code>
-            <button id="copyIssuedKeyBtn" type="button">복사</button>
-          </p>
-        </fieldset>
+        <!-- 탭 1: 행사 & 수량 -->
+        <section id="tab-events">
+          <div class="stats">
+            <div class="stat"><div class="label">등록된 행사</div><div id="statEvents" class="num">0</div></div>
+            <div class="stat"><div class="label">누적 예매 건수</div><div id="statReservations" class="num">0</div></div>
+            <div class="stat"><div class="label">누적 예매 매수</div><div id="statTickets" class="num">0</div></div>
+          </div>
 
-        <form id="issueKeyForm">
-          <p>
-            <label>키 이름*: <input name="name" required placeholder="웹 프론트엔드" /></label>
-            <label>권한:
+          <details id="newEventDetails">
+            <summary>+ 새 행사 등록</summary>
+            <form id="newEventForm">
+              <div class="form-grid">
+                <div class="field">
+                  <label>행사명 *</label>
+                  <input name="title" required placeholder="예: 창작뮤지컬 <다이노즈>" />
+                </div>
+                <div class="field">
+                  <label>장소 (선택)</label>
+                  <input name="venue" placeholder="예: 대학로 소극장" />
+                </div>
+              </div>
+              <div class="field" style="margin-top:10px;">
+                <label>설명 (선택)</label>
+                <textarea name="description" rows="2" placeholder="행사 안내 문구"></textarea>
+              </div>
+              <div style="margin-top:10px;">
+                <button type="submit" class="btn-primary btn-sm">행사 등록</button>
+              </div>
+            </form>
+          </details>
+
+          <div id="eventsContainer"></div>
+        </section>
+
+        <!-- 탭 2: 예매자 명단 -->
+        <section id="tab-reservations" class="hidden">
+          <div class="card">
+            <div class="card-title">
+              <div>
+                <h2>예매자 명단</h2>
+                <div id="resSummary" class="sub-text"></div>
+              </div>
+              <button id="exportCsvBtn" type="button" class="btn-sm">CSV 다운로드 (엑셀)</button>
+            </div>
+
+            <form id="searchReservationsForm" class="row" style="margin-bottom:12px;">
+              <select id="filterSchedule" style="min-width:200px;"><option value="">전체 회차</option></select>
+              <input id="filterName" placeholder="이름 검색" style="width:130px;" />
+              <input id="filterPhone" placeholder="연락처 검색" style="width:160px;" />
+              <button type="submit" class="btn-primary btn-sm">조회</button>
+              <button id="resetFilterBtn" type="button" class="btn-sm">초기화</button>
+            </form>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>예매번호</th>
+                    <th>행사 / 회차</th>
+                    <th>이름</th>
+                    <th>연락처</th>
+                    <th>선택 권종</th>
+                    <th>총 수량</th>
+                    <th>예매 일시</th>
+                  </tr>
+                </thead>
+                <tbody id="reservationsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 탭 3: API Key & 연동 -->
+        <section id="tab-keys" class="hidden">
+          <div id="newKeyBanner" class="banner hidden">
+            <strong>새 API Key가 발급되었습니다!</strong> 보안상 이 키는 지금 한 번만 표시됩니다.
+            <div class="row" style="margin-top:8px;">
+              <code id="issuedKeyText" style="background:#fff;padding:6px 10px;border:1px solid #fcd34d;word-break:break-all;"></code>
+              <button id="copyIssuedKeyBtn" type="button" class="btn-primary btn-sm">키 복사</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <h2>API Key 관리</h2>
+              <div class="row">
+                <span class="sub-text">서버 주소: <code id="baseUrlCode"></code></span>
+                <button id="copyBaseUrlBtn" type="button" class="btn-copy">주소 복사</button>
+              </div>
+            </div>
+
+            <form id="issueKeyForm" class="row" style="margin-bottom:14px;">
+              <input name="name" required placeholder="키 이름 (예: 웹 프론트엔드)" style="min-width:200px;" />
               <select name="scope">
-                <option value="public">public (예매 사이트 프론트엔드용, pk_live_)</option>
-                <option value="admin">admin (관리/서버용, sk_live_)</option>
+                <option value="public">public (예매 사이트 연동용 · pk_live_)</option>
+                <option value="admin">admin (관리/서버용 · sk_live_)</option>
               </select>
-            </label>
-            <button type="submit">API Key 발급</button>
-          </p>
-        </form>
+              <button type="submit" class="btn-primary btn-sm">+ API Key 발급</button>
+            </form>
 
-        <table>
-          <thead>
-            <tr>
-              <th>이름</th>
-              <th>권한</th>
-              <th>Prefix</th>
-              <th>최근 사용</th>
-              <th>상태</th>
-              <th>작업</th>
-            </tr>
-          </thead>
-          <tbody id="keysTbody"></tbody>
-        </table>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>이름</th>
+                    <th>권한</th>
+                    <th>Prefix</th>
+                    <th>최근 사용</th>
+                    <th>상태</th>
+                    <th>작업</th>
+                  </tr>
+                </thead>
+                <tbody id="keysTbody"></tbody>
+              </table>
+            </div>
+          </div>
 
-        <fieldset>
-          <legend>허용 도메인 (CORS Allowed Origins)</legend>
-          <p>비워두면 모든 도메인 허용. 여러 개는 쉼표(,)로 구분.</p>
-          <p>
-            <input id="originsInput" size="60" placeholder="https://example.com, http://localhost:5173" />
-            <button id="saveOriginsBtn" type="button">저장</button>
-          </p>
-        </fieldset>
+          <div class="card">
+            <h3 style="margin:0 0 4px;font-size:15px;">허용 도메인 (CORS Allowed Origins)</h3>
+            <p class="sub-text" style="margin:0 0 10px;">
+              비워두면 모든 도메인을 허용합니다. 여러 개는 쉼표(,)로 구분해 입력하세요. (저장 시 즉시 반영)
+            </p>
+            <div class="row">
+              <input id="originsInput" style="flex:1;min-width:260px;" placeholder="https://my-site.com, http://localhost:5173" />
+              <button id="saveOriginsBtn" type="button" class="btn-primary btn-sm">저장</button>
+            </div>
+          </div>
 
-        <fieldset>
-          <legend>연동 코드 예제 (SDK)</legend>
-          <pre><code id="sdkSnippet"></code></pre>
-        </fieldset>
-      </section>
-    </div>
-  </main>
+          <div class="card">
+            <div class="card-title">
+              <h3>연동 코드 예제 (SDK)</h3>
+              <button id="copySnippetBtn" type="button" class="btn-copy">코드 복사</button>
+            </div>
+            <pre><code id="sdkSnippet"></code></pre>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- 권종 수정 다이얼로그 (브라우저 기본 dialog) -->
+  <dialog id="editTicketDialog">
+    <h3>티켓 권종 수정</h3>
+    <form id="editTicketForm">
+      <input type="hidden" name="id" />
+      <div class="field" style="margin-bottom:10px;">
+        <label>권종 이름 *</label>
+        <input name="name" required />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>총 수량 * <span class="sub-text">(이미 예매된 수량 이상)</span></label>
+        <input name="totalQuantity" type="number" min="0" required />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>표시 가격 (원, 무료는 0)</label>
+        <input name="price" type="number" min="0" value="0" />
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>1회 예매 최대 매수 <span class="sub-text">(비워두면 무제한)</span></label>
+        <input name="maxPerReservation" type="number" min="1" placeholder="제한 없음" />
+      </div>
+      <div class="row" style="justify-content:flex-end;">
+        <button type="button" id="closeDialogBtn">취소</button>
+        <button type="submit" class="btn-primary">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
 
   <script>
     const state = {
@@ -212,12 +518,32 @@ export function renderAdminPage(): string {
       if (!iso) return '-';
       return new Date(iso).toLocaleString('ko-KR', {
         year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit',
+        weekday: 'short', hour: '2-digit', minute: '2-digit',
       });
     }
 
-    function notify(msg) {
-      $('statusMsg').textContent = '[' + new Date().toLocaleTimeString('ko-KR') + '] ' + msg;
+    function fmtPhone(raw) {
+      const d = String(raw ?? '').replace(/\\D/g, '');
+      if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+      if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+      return raw || '-';
+    }
+
+    function showToast(msg, isError = false) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.className = 'toast' + (isError ? ' error' : '');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.add('hidden'), 2600);
+    }
+
+    async function copyText(text, label = '복사되었습니다.') {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(label);
+      } catch {
+        showToast('복사에 실패했습니다.', true);
+      }
     }
 
     async function api(path, options = {}) {
@@ -243,7 +569,7 @@ export function renderAdminPage(): string {
       state.tenants = data.tenants;
       $('loginView').classList.add('hidden');
       $('appView').classList.remove('hidden');
-      $('logoutWrap').classList.remove('hidden');
+      $('logoutBtn').classList.remove('hidden');
       renderTenantSelect();
       if (state.tenants.length > 0) {
         await selectTenant(state.selectedTenantId || state.tenants[0].id);
@@ -269,7 +595,7 @@ export function renderAdminPage(): string {
       state.masterKey = '';
       state.selectedTenantId = null;
       $('appView').classList.add('hidden');
-      $('logoutWrap').classList.add('hidden');
+      $('logoutBtn').classList.add('hidden');
       $('loginView').classList.remove('hidden');
       $('masterKeyInput').value = '';
     });
@@ -277,11 +603,11 @@ export function renderAdminPage(): string {
     function renderTenantSelect() {
       const sel = $('tenantSelect');
       if (state.tenants.length === 0) {
-        sel.innerHTML = '<option value="">(없음)</option>';
+        sel.innerHTML = '<option value="">등록된 사이트 없음</option>';
         return;
       }
       sel.innerHTML = state.tenants.map((t) =>
-        \`<option value="\${t.id}">\${esc(t.name)} (\${esc(t.slug)}) [\${t.isActive ? '활성' : '비활성'}]</option>\`
+        \`<option value="\${t.id}">\${esc(t.name)} (\${esc(t.slug)})</option>\`
       ).join('');
       if (state.selectedTenantId) sel.value = state.selectedTenantId;
     }
@@ -303,8 +629,15 @@ export function renderAdminPage(): string {
       const tenant = state.tenants.find((t) => t.id === state.selectedTenantId);
       if (!tenant) return;
 
-      $('tenantMeta').textContent =
-        'ID: ' + tenant.id + ' | Slug: ' + tenant.slug + ' | 상태: ' + (tenant.isActive ? '활성' : '비활성');
+      const badge = $('tenantStatusBadge');
+      badge.textContent = tenant.isActive ? '활성' : '비활성';
+      badge.className = 'badge ' + (tenant.isActive ? 'badge-green' : 'badge-gray');
+
+      $('tenantMeta').innerHTML =
+        'Slug: <code>' + esc(tenant.slug) + '</code> · Tenant ID: <code>' + esc(tenant.id) + '</code> ' +
+        '<button type="button" class="btn-copy" data-copy="' + esc(tenant.id) + '" data-copy-label="Tenant ID 복사됨">복사</button>';
+
+      $('baseUrlCode').textContent = window.location.origin;
       $('originsInput').value = (tenant.allowedOrigins || []).join(', ');
       $('sdkSnippet').textContent = \`import { createTicketingClient } from './sdk';
 
@@ -313,8 +646,10 @@ const ticketing = createTicketingClient({
   apiKey: 'pk_live_여기에_발급받은_키_입력',
 });
 
+// 1. 행사 목록 조회
 const { events } = await ticketing.events.list();
 
+// 2. 비회원 예매 생성 (이름 + 연락처)
 const result = await ticketing.reservations.create({
   scheduleId: '회차_ID',
   customerName: '홍길동',
@@ -336,87 +671,163 @@ const result = await ticketing.reservations.create({
       renderScheduleFilter();
       renderReservations();
       renderApiKeys();
+      bindCopyButtons();
+    }
+
+    function bindCopyButtons() {
+      document.querySelectorAll('button[data-copy]').forEach((btn) => {
+        if (btn._bound) return;
+        btn._bound = true;
+        btn.addEventListener('click', () => copyText(btn.dataset.copy, btn.dataset.copyLabel || '복사되었습니다.'));
+      });
+    }
+
+    function stockBadge(remaining, total) {
+      if (remaining <= 0) return '<span class="badge badge-red">매진</span>';
+      if (total > 0 && remaining / total <= 0.15) return '<span class="badge badge-amber">마감 임박</span>';
+      return '<span class="badge badge-green">예매 가능</span>';
     }
 
     function renderEvents() {
       const { stats, events } = state.overview;
-      $('statsLine').innerHTML =
-        '<strong>요약:</strong> 행사 ' + stats.eventCount + '개 | 누적 예매 ' + stats.reservationCount + '건 | 누적 매수 ' + stats.totalTicketsReserved + '매';
+      $('statEvents').textContent = stats.eventCount.toLocaleString();
+      $('statReservations').textContent = stats.reservationCount.toLocaleString();
+      $('statTickets').textContent = stats.totalTicketsReserved.toLocaleString();
 
       const wrap = $('eventsContainer');
       if (events.length === 0) {
-        wrap.innerHTML = '<p>등록된 행사가 없습니다.</p>';
+        wrap.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:32px;">등록된 행사가 없습니다. 위의 <strong>"+ 새 행사 등록"</strong>을 눌러 추가해 보세요.</div>';
         return;
       }
 
       wrap.innerHTML = events.map((ev) => \`
-        <fieldset>
-          <legend>\${esc(ev.title)} [\${ev.isActive ? '노출' : '숨김'}]</legend>
-          <p>
-            장소: \${esc(ev.venue || '-')} | ID: <code>\${ev.id}</code>
-            <button type="button" data-action="toggle-event" data-id="\${ev.id}" data-active="\${ev.isActive}">
+        <div class="card">
+          <div class="card-title">
+            <div>
+              <div class="row">
+                <h3 style="margin:0;">\${esc(ev.title)}</h3>
+                <span class="badge \${ev.isActive ? 'badge-green' : 'badge-gray'}">\${ev.isActive ? '노출 중' : '숨김'}</span>
+              </div>
+              <div class="sub-text" style="margin-top:4px;">
+                장소: \${esc(ev.venue || '미지정')} · Event ID: <code>\${ev.id}</code>
+                <button type="button" class="btn-copy" data-copy="\${ev.id}" data-copy-label="Event ID 복사됨">복사</button>
+              </div>
+            </div>
+            <button type="button" class="btn-sm" data-action="toggle-event" data-id="\${ev.id}" data-active="\${ev.isActive}">
               \${ev.isActive ? '숨기기' : '노출하기'}
             </button>
-          </p>
+          </div>
 
           <details>
             <summary>+ 회차 추가</summary>
             <form data-form="add-schedule" data-event-id="\${ev.id}">
-              <p>
-                <label>시작 일시*: <input name="startsAt" type="datetime-local" required /></label>
-                <label>종료 일시: <input name="endsAt" type="datetime-local" /></label>
-                <button type="submit">회차 등록</button>
-              </p>
+              <div class="form-grid">
+                <div class="field">
+                  <label>시작 일시 *</label>
+                  <input name="startsAt" type="datetime-local" required />
+                </div>
+                <div class="field">
+                  <label>종료 일시 (선택)</label>
+                  <input name="endsAt" type="datetime-local" />
+                </div>
+              </div>
+              <div style="margin-top:10px;">
+                <button type="submit" class="btn-primary btn-sm">회차 등록</button>
+              </div>
             </form>
           </details>
 
           \${ev.schedules.length === 0
-            ? '<p>등록된 회차가 없습니다.</p>'
+            ? '<p class="sub-text" style="margin:8px 0 0;">아직 등록된 회차가 없습니다. 회차와 수량 권종을 추가하면 예매가 열립니다.</p>'
             : ev.schedules.map((sc) => \`
-              <fieldset>
-                <legend>회차: \${fmtDate(sc.startsAt)} \${sc.endsAt ? '~ ' + fmtDate(sc.endsAt) : ''}</legend>
-                <p>Schedule ID: <code>\${sc.id}</code></p>
+              <div class="schedule-item">
+                <div class="between">
+                  <div>
+                    <strong>\${fmtDate(sc.startsAt)}</strong>
+                    \${sc.endsAt ? '<span class="sub-text"> ~ ' + fmtDate(sc.endsAt) + '</span>' : ''}
+                  </div>
+                  <div class="sub-text">
+                    Schedule ID: <code>\${sc.id}</code>
+                    <button type="button" class="btn-copy" data-copy="\${sc.id}" data-copy-label="Schedule ID 복사됨">복사</button>
+                  </div>
+                </div>
 
                 <details>
                   <summary>+ 수량 권종 추가</summary>
                   <form data-form="add-tt" data-schedule-id="\${sc.id}">
-                    <p>
-                      <label>권종명*: <input name="name" required placeholder="일반석" size="14" /></label>
-                      <label>총 수량*: <input name="totalQuantity" type="number" min="1" value="100" required style="width:70px;" /></label>
-                      <label>가격: <input name="price" type="number" min="0" value="0" style="width:80px;" /></label>
-                      <label>1회 최대: <input name="maxPerReservation" type="number" min="1" placeholder="무제한" style="width:70px;" /></label>
-                      <button type="submit">권종 추가</button>
-                    </p>
+                    <div class="form-grid">
+                      <div class="field">
+                        <label>권종 이름 *</label>
+                        <input name="name" required placeholder="예: 일반석 / 학생석" />
+                      </div>
+                      <div class="field">
+                        <label>총 수량 *</label>
+                        <input name="totalQuantity" type="number" min="1" value="100" required />
+                      </div>
+                      <div class="field">
+                        <label>표시 가격 (원)</label>
+                        <input name="price" type="number" min="0" value="0" />
+                      </div>
+                      <div class="field">
+                        <label>1회 최대 매수 (선택)</label>
+                        <input name="maxPerReservation" type="number" min="1" placeholder="제한 없음" />
+                      </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                      <button type="submit" class="btn-primary btn-sm">권종 추가</button>
+                    </div>
                   </form>
                 </details>
 
                 \${sc.ticketTypes.length === 0
-                  ? '<p>등록된 권종이 없습니다.</p>'
-                  : \`<table>
-                      <thead>
-                        <tr><th>권종명</th><th>가격</th><th>잔여 / 총 수량</th><th>1회 최대</th><th>수정</th></tr>
-                      </thead>
-                      <tbody>
-                        \${sc.ticketTypes.map((tt) => {
-                          const reserved = tt.totalQuantity - tt.remainingQuantity;
-                          return \`<tr>
-                            <td>\${esc(tt.name)}<br /><small><code>\${tt.id}</code></small></td>
-                            <td>\${tt.price.toLocaleString()}원</td>
-                            <td>
-                              잔여 <strong>\${tt.remainingQuantity}</strong> / 총 \${tt.totalQuantity}매
-                              <br /><progress value="\${reserved}" max="\${tt.totalQuantity}"></progress>
-                            </td>
-                            <td>\${tt.maxPerReservation ?? '제한 없음'}</td>
-                            <td>
-                              <button type="button" data-action="edit-tt" data-id="\${tt.id}" data-name="\${esc(tt.name)}" data-total="\${tt.totalQuantity}" data-price="\${tt.price}">수량/정보 수정</button>
-                            </td>
-                          </tr>\`;
-                        }).join('')}
-                      </tbody>
-                    </table>\`}
-              </fieldset>
+                  ? '<p class="sub-text" style="margin:6px 0 0;">등록된 수량 권종이 없습니다.</p>'
+                  : \`<div class="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>권종</th>
+                            <th>상태</th>
+                            <th>잔여 / 총 수량</th>
+                            <th>가격</th>
+                            <th>1회 최대</th>
+                            <th>수정</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          \${sc.ticketTypes.map((tt) => {
+                            const reserved = tt.totalQuantity - tt.remainingQuantity;
+                            return \`<tr>
+                              <td>
+                                <strong>\${esc(tt.name)}</strong>
+                                <div class="sub-text">
+                                  <code>\${tt.id}</code>
+                                  <button type="button" class="btn-copy" data-copy="\${tt.id}" data-copy-label="권종 ID 복사됨">복사</button>
+                                </div>
+                              </td>
+                              <td>\${stockBadge(tt.remainingQuantity, tt.totalQuantity)}</td>
+                              <td>
+                                <strong>\${tt.remainingQuantity}</strong> / \${tt.totalQuantity}매
+                                <span class="sub-text">(예매 \${reserved})</span>
+                                <div><progress value="\${reserved}" max="\${tt.totalQuantity}"></progress></div>
+                              </td>
+                              <td>\${tt.price === 0 ? '무료' : tt.price.toLocaleString() + '원'}</td>
+                              <td>\${tt.maxPerReservation ? tt.maxPerReservation + '매' : '무제한'}</td>
+                              <td>
+                                <button type="button" class="btn-sm" data-action="edit-tt"
+                                  data-id="\${tt.id}"
+                                  data-name="\${esc(tt.name)}"
+                                  data-total="\${tt.totalQuantity}"
+                                  data-price="\${tt.price}"
+                                  data-max="\${tt.maxPerReservation ?? ''}">수정</button>
+                              </td>
+                            </tr>\`;
+                          }).join('')}
+                        </tbody>
+                      </table>
+                    </div>\`}
+              </div>
             \`).join('')}
-        </fieldset>
+        </div>
       \`).join('');
 
       wrap.querySelectorAll('button[data-action="toggle-event"]').forEach((btn) => {
@@ -426,9 +837,9 @@ const result = await ticketing.reservations.create({
               method: 'PATCH',
               body: JSON.stringify({ isActive: btn.dataset.active !== 'true' }),
             });
-            notify('행사 상태를 변경했습니다.');
+            showToast('행사 노출 상태를 변경했습니다.');
             await loadTenantData();
-          } catch (err) { notify(err.message); }
+          } catch (err) { showToast(err.message, true); }
         });
       });
 
@@ -445,9 +856,9 @@ const result = await ticketing.reservations.create({
                 endsAt: endsRaw ? new Date(endsRaw).toISOString() : null,
               }),
             });
-            notify('회차가 등록되었습니다.');
+            showToast('회차가 등록되었습니다.');
             await loadTenantData();
-          } catch (err) { notify(err.message); }
+          } catch (err) { showToast(err.message, true); }
         });
       });
 
@@ -466,35 +877,49 @@ const result = await ticketing.reservations.create({
                 maxPerReservation: maxRaw ? Number(maxRaw) : null,
               }),
             });
-            notify('권종이 추가되었습니다.');
+            showToast('수량 권종이 추가되었습니다.');
             await loadTenantData();
-          } catch (err) { notify(err.message); }
+          } catch (err) { showToast(err.message, true); }
         });
       });
 
       wrap.querySelectorAll('button[data-action="edit-tt"]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const name = prompt('권종 이름:', btn.dataset.name);
-          if (name === null) return;
-          const totalStr = prompt('총 수량 (기예매 수량 이상):', btn.dataset.total);
-          if (totalStr === null) return;
-          const priceStr = prompt('표시 가격(원):', btn.dataset.price);
-          if (priceStr === null) return;
-          try {
-            await api('/v1/platform/tenants/' + state.selectedTenantId + '/ticket-types/' + btn.dataset.id, {
-              method: 'PATCH',
-              body: JSON.stringify({
-                name: name.trim(),
-                totalQuantity: Number(totalStr),
-                price: Number(priceStr || 0),
-              }),
-            });
-            notify('권종이 수정되었습니다.');
-            await loadTenantData();
-          } catch (err) { notify(err.message); }
+        btn.addEventListener('click', () => {
+          const dialog = $('editTicketDialog');
+          const form = $('editTicketForm');
+          form.elements.id.value = btn.dataset.id;
+          form.elements.name.value = btn.dataset.name;
+          form.elements.totalQuantity.value = btn.dataset.total;
+          form.elements.price.value = btn.dataset.price;
+          form.elements.maxPerReservation.value = btn.dataset.max;
+          dialog.showModal();
         });
       });
+
+      bindCopyButtons();
     }
+
+    $('closeDialogBtn').addEventListener('click', () => $('editTicketDialog').close());
+
+    $('editTicketForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const maxRaw = String(fd.get('maxPerReservation') || '').trim();
+      try {
+        await api('/v1/platform/tenants/' + state.selectedTenantId + '/ticket-types/' + fd.get('id'), {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: String(fd.get('name')).trim(),
+            totalQuantity: Number(fd.get('totalQuantity')),
+            price: Number(fd.get('price') || 0),
+            maxPerReservation: maxRaw ? Number(maxRaw) : null,
+          }),
+        });
+        $('editTicketDialog').close();
+        showToast('티켓 권종을 수정했습니다.');
+        await loadTenantData();
+      } catch (err) { showToast(err.message, true); }
+    });
 
     function renderScheduleFilter() {
       const sel = $('filterSchedule');
@@ -510,25 +935,28 @@ const result = await ticketing.reservations.create({
     }
 
     function renderReservations() {
+      const totalTickets = state.reservations.reduce((sum, r) => sum + r.totalQuantity, 0);
+      $('resSummary').textContent = '조회된 예매 ' + state.reservations.length + '건 · 총 ' + totalTickets + '매';
+
       const tbody = $('reservationsTbody');
       if (state.reservations.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">조회된 예매 내역이 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px;">조회된 예매 내역이 없습니다.</td></tr>';
         return;
       }
       tbody.innerHTML = state.reservations.map((r) => \`
         <tr>
           <td><code>\${esc(r.reservationCode)}</code></td>
-          <td>\${esc(r.eventTitle)}<br /><small>\${fmtDate(r.scheduleStartsAt)}</small></td>
-          <td>\${esc(r.customerName)}</td>
-          <td>\${esc(r.customerPhone)}</td>
-          <td>\${r.items.map((i) => esc(i.ticketTypeName) + ' x ' + i.quantity).join(', ')}</td>
-          <td>\${r.totalQuantity}매</td>
-          <td>\${fmtDate(r.createdAt)}</td>
+          <td><strong>\${esc(r.eventTitle)}</strong><div class="sub-text">\${fmtDate(r.scheduleStartsAt)}</div></td>
+          <td><strong>\${esc(r.customerName)}</strong></td>
+          <td>\${esc(fmtPhone(r.customerPhone))}</td>
+          <td>\${r.items.map((i) => esc(i.ticketTypeName) + ' × ' + i.quantity).join(', ')}</td>
+          <td><strong>\${r.totalQuantity}매</strong></td>
+          <td class="sub-text">\${fmtDate(r.createdAt)}</td>
         </tr>
       \`).join('');
     }
 
-    $('searchReservationsBtn').addEventListener('click', async () => {
+    async function searchReservations() {
       try {
         const params = new URLSearchParams();
         if ($('filterSchedule').value) params.set('scheduleId', $('filterSchedule').value);
@@ -537,19 +965,30 @@ const result = await ticketing.reservations.create({
         const data = await api('/v1/platform/tenants/' + state.selectedTenantId + '/reservations?' + params.toString());
         state.reservations = data.reservations;
         renderReservations();
-        notify('예매자 명단 ' + state.reservations.length + '건 조회됨');
-      } catch (err) { notify(err.message); }
+      } catch (err) { showToast(err.message, true); }
+    }
+
+    $('searchReservationsForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      searchReservations();
+    });
+
+    $('resetFilterBtn').addEventListener('click', () => {
+      $('filterSchedule').value = '';
+      $('filterName').value = '';
+      $('filterPhone').value = '';
+      searchReservations();
     });
 
     $('exportCsvBtn').addEventListener('click', () => {
-      if (state.reservations.length === 0) return notify('내보낼 예매 내역이 없습니다.');
+      if (state.reservations.length === 0) return showToast('내보낼 예매 내역이 없습니다.', true);
       const header = ['예매번호', '행사명', '회차', '이름', '연락처', '선택권종', '총수량', '예매일시'];
       const rows = state.reservations.map((r) => [
         r.reservationCode,
         r.eventTitle,
         fmtDate(r.scheduleStartsAt),
         r.customerName,
-        r.customerPhone,
+        fmtPhone(r.customerPhone),
         r.items.map((i) => i.ticketTypeName + ' x ' + i.quantity).join(' / '),
         r.totalQuantity,
         fmtDate(r.createdAt),
@@ -567,27 +1006,27 @@ const result = await ticketing.reservations.create({
     function renderApiKeys() {
       const tbody = $('keysTbody');
       if (state.apiKeys.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6">발급된 API Key가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">발급된 API Key가 없습니다.</td></tr>';
         return;
       }
       tbody.innerHTML = state.apiKeys.map((k) => \`
         <tr>
-          <td>\${esc(k.name)}</td>
-          <td>\${k.scope}</td>
+          <td><strong>\${esc(k.name)}</strong></td>
+          <td><span class="badge \${k.scope === 'public' ? 'badge-green' : 'badge-gray'}">\${k.scope}</span></td>
           <td><code>\${esc(k.keyPrefix)}...</code></td>
-          <td>\${fmtDate(k.lastUsedAt)}</td>
-          <td>\${k.revokedAt ? '폐기됨' : '활성'}</td>
-          <td>\${k.revokedAt ? '-' : '<button type="button" data-revoke="' + k.id + '">폐기</button>'}</td>
+          <td class="sub-text">\${fmtDate(k.lastUsedAt)}</td>
+          <td>\${k.revokedAt ? '<span class="badge badge-red">폐기됨</span>' : '<span class="badge badge-green">활성</span>'}</td>
+          <td>\${k.revokedAt ? '-' : '<button type="button" class="btn-danger btn-sm" data-revoke="' + k.id + '">폐기</button>'}</td>
         </tr>
       \`).join('');
       tbody.querySelectorAll('button[data-revoke]').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          if (!confirm('이 API Key를 폐기하시겠습니까?')) return;
+          if (!confirm('이 API Key를 폐기하시겠습니까? 폐기된 키는 즉시 사용 불가합니다.')) return;
           try {
             await api('/v1/platform/tenants/' + state.selectedTenantId + '/api-keys/' + btn.dataset.revoke, { method: 'DELETE' });
-            notify('API Key를 폐기했습니다.');
+            showToast('API Key를 폐기했습니다.');
             await loadTenantData();
-          } catch (err) { notify(err.message); }
+          } catch (err) { showToast(err.message, true); }
         });
       });
     }
@@ -604,14 +1043,13 @@ const result = await ticketing.reservations.create({
         $('newKeyBanner').classList.remove('hidden');
         e.target.reset();
         await loadTenantData();
-        notify('새 API Key가 발급되었습니다.');
-      } catch (err) { notify(err.message); }
+        showToast('새 API Key가 발급되었습니다.');
+      } catch (err) { showToast(err.message, true); }
     });
 
-    $('copyIssuedKeyBtn').addEventListener('click', async () => {
-      await navigator.clipboard.writeText($('issuedKeyText').textContent);
-      notify('API Key를 복사했습니다.');
-    });
+    $('copyIssuedKeyBtn').addEventListener('click', () => copyText($('issuedKeyText').textContent, 'API Key 복사됨'));
+    $('copyBaseUrlBtn').addEventListener('click', () => copyText($('baseUrlCode').textContent, '서버 주소 복사됨'));
+    $('copySnippetBtn').addEventListener('click', () => copyText($('sdkSnippet').textContent, '연동 코드 복사됨'));
 
     $('saveOriginsBtn').addEventListener('click', async () => {
       try {
@@ -621,8 +1059,8 @@ const result = await ticketing.reservations.create({
           body: JSON.stringify({ allowedOrigins: origins }),
         });
         state.tenants = state.tenants.map((t) => (t.id === updated.id ? updated : t));
-        notify('허용 도메인을 저장했습니다.');
-      } catch (err) { notify(err.message); }
+        showToast('허용 도메인이 저장되었습니다.');
+      } catch (err) { showToast(err.message, true); }
     });
 
     $('newTenantForm').addEventListener('submit', async (e) => {
@@ -636,9 +1074,10 @@ const result = await ticketing.reservations.create({
         });
         state.tenants.unshift(created);
         e.target.reset();
-        notify('새 예매 사이트를 등록했습니다.');
+        $('newTenantDetails').open = false;
+        showToast('새 예매 사이트가 등록되었습니다.');
         await selectTenant(created.id);
-      } catch (err) { notify(err.message); }
+      } catch (err) { showToast(err.message, true); }
     });
 
     $('newEventForm').addEventListener('submit', async (e) => {
@@ -654,9 +1093,10 @@ const result = await ticketing.reservations.create({
           }),
         });
         e.target.reset();
-        notify('행사를 등록했습니다.');
+        $('newEventDetails').open = false;
+        showToast('행사가 등록되었습니다.');
         await loadTenantData();
-      } catch (err) { notify(err.message); }
+      } catch (err) { showToast(err.message, true); }
     });
 
     $('toggleTenantActiveBtn').addEventListener('click', async () => {
@@ -670,14 +1110,16 @@ const result = await ticketing.reservations.create({
         state.tenants = state.tenants.map((t) => (t.id === updated.id ? updated : t));
         renderTenantSelect();
         await loadTenantData();
-        notify('사이트 상태를 변경했습니다.');
-      } catch (err) { notify(err.message); }
+        showToast('사이트 상태를 변경했습니다.');
+      } catch (err) { showToast(err.message, true); }
     });
 
-    $('refreshBtn').addEventListener('click', () => loadTenantData().then(() => notify('새로고침 완료')));
+    $('refreshBtn').addEventListener('click', () => loadTenantData().then(() => showToast('새로고침 완료')));
 
-    document.querySelectorAll('.tabBtn').forEach((btn) => {
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
         state.activeTab = btn.dataset.tab;
         ['events', 'reservations', 'keys'].forEach((t) => {
           $('tab-' + t).classList.toggle('hidden', t !== state.activeTab);
