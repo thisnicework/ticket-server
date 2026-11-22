@@ -96,12 +96,17 @@ describe('HTTP API Layer', () => {
     expect(doc.paths['/v1/admin/events']).toBeDefined();
   });
 
-  it('serves admin dashboard HTML at GET /admin', async () => {
+  it('serves admin dashboard HTML at GET /admin and favicon at GET /favicon.svg', async () => {
     const res = await app.request('/admin');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
     const html = await res.text();
     expect(html).toContain('hyunjun-ticket-server');
+    expect(html).toContain('/favicon.svg');
+
+    const fav = await app.request('/favicon.svg');
+    expect(fav.status).toBe(200);
+    expect(fav.headers.get('content-type')).toContain('image/svg+xml');
   });
 
   it('rejects platform endpoints without valid master key', async () => {

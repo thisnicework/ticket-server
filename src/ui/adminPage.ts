@@ -5,6 +5,8 @@ export function renderAdminPage(): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>hyunjun-ticket-server</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="alternate icon" href="/favicon.ico" />
   <style>
     :root {
       --bg: #f6f7f9;

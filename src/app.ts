@@ -16,6 +16,8 @@ export interface CreateAppOptions {
   enableLogger?: boolean;
 }
 
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#2563EB"/><path d="M14 22C14 19.7909 15.7909 18 18 18H46C48.2091 18 50 19.7909 50 22V27C47.2386 27 45 29.2386 45 32C45 34.7614 47.2386 37 50 37V42C50 44.2091 48.2091 46 46 46H18C15.7909 46 14 44.2091 14 42V37C16.7614 37 19 34.7614 19 32C19 29.2386 16.7614 27 14 27V22Z" fill="white"/><path d="M36 22V42" stroke="#2563EB" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 4"/></svg>`;
+
 export function createApp(options: CreateAppOptions) {
   const app = new OpenAPIHono<AppEnv>({
     defaultHook: (result, c) => {
@@ -79,6 +81,18 @@ export function createApp(options: CreateAppOptions) {
   );
   app.get('/', (c) => c.redirect('/admin'));
   app.get('/admin', (c) => c.html(renderAdminPage()));
+  app.get('/favicon.svg', (c) =>
+    c.body(FAVICON_SVG, 200, {
+      'Content-Type': 'image/svg+xml',
+      'Cache-Control': 'public, max-age=86400',
+    }),
+  );
+  app.get('/favicon.ico', (c) =>
+    c.body(FAVICON_SVG, 200, {
+      'Content-Type': 'image/svg+xml',
+      'Cache-Control': 'public, max-age=86400',
+    }),
+  );
 
   // 라우트 마운트
   app.route('/v1/platform', platformRouter);
