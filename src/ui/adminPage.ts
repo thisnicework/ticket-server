@@ -282,6 +282,7 @@ export function renderAdminPage(): string {
           <div class="row">
             <button id="toggleTenantActiveBtn" type="button" class="btn-sm">활성/비활성 전환</button>
             <button id="refreshBtn" type="button" class="btn-sm">새로고침</button>
+            <button id="deleteTenantBtn" type="button" class="btn-danger btn-sm">사이트 삭제</button>
           </div>
         </div>
         <div id="tenantMeta" class="sub-text"></div>
@@ -463,6 +464,26 @@ export function renderAdminPage(): string {
       </div>
     </main>
   </div>
+
+  <!-- 예매 사이트 삭제 확인 다이얼로그 (암호 재입력 + 2차 확인) -->
+  <dialog id="deleteTenantDialog">
+    <h3>예매 사이트 영구 삭제</h3>
+    <div id="deleteTenantSummary" style="background:var(--sub-bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;"></div>
+    <p class="sub-text" style="color:var(--red);margin:0 0 14px;">
+      이 사이트에 등록된 <strong>모든 행사, 회차, 권종, API Key, 예매자 명단</strong>이 영구 삭제되며 복구할 수 없습니다.
+    </p>
+    <form id="deleteTenantForm">
+      <div class="field" style="margin-bottom:12px;">
+        <label for="deleteTenantPasswordInput">관리자 암호 (PLATFORM_MASTER_KEY) 다시 입력 *</label>
+        <input id="deleteTenantPasswordInput" name="confirmMasterKey" type="password" placeholder="관리자 암호 입력" required autocomplete="current-password" />
+      </div>
+      <p id="deleteTenantError" class="hidden" style="color:var(--red);font-size:12.5px;margin:0 0 12px;"></p>
+      <div class="row" style="justify-content:flex-end;">
+        <button type="button" id="closeDeleteTenantBtn">취소</button>
+        <button type="submit" class="btn-danger" style="background:var(--red);color:#fff;border-color:var(--red);">삭제 진행</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- 예매 취소 확인 다이얼로그 -->
   <dialog id="cancelReservationDialog">
@@ -1359,6 +1380,58 @@ const result = await ticketing.reservations.create({
         await loadTenantData();
         showToast('사이트 상태를 변경했습니다.');
       } catch (err) { showToast(err.message, true); }
+    });
+
+    $('deleteTenantBtn').addEventListener('click', () => {
+      const tenant = state.tenants.find((t) => t.id === state.selectedTenantId);
+      if (!tenant) return;
+      $('deleteTenantSummary').innerHTML =
+        '<div><strong>사이트 이름:</strong> ' + esc(tenant.name) + '</div>' +
+        '<div><strong>Slug:</strong> <code>' + esc(tenant.slug) + '</code></div>';
+      $('deleteTenantPasswordInput').value = '';
+      $('deleteTenantError').classList.add('hidden');
+      $('deleteTenantDialog').showModal();
+    });
+
+    $('closeDeleteTenantBtn').addEventListener('click', () => {
+      $('deleteTenantDialog').close();
+    });
+
+    $('deleteTenantForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const tenant = state.tenants.find((t) => t.id === state.selectedTenantId);
+      if (!tenant) return;
+      const confirmMasterKey = $('deleteTenantPasswordInput').value.trim();
+      if (!confirmMasterKey) return;
+
+      $('deleteTenantError').classList.add('hidden');
+
+      const doubleChecked = confirm(
+        '[' + tenant.name + ' (' + tenant.slug + ')] 사이트와 소속된 모든 행사·예매 데이터를 정말 영구 삭제하시겠습니까?\\n\\n이 작업은 되돌릴 수 없습니다.'
+      );
+      if (!doubleChecked) return;
+
+      try {
+        await api('/v1/platform/tenants/' + tenant.id, {
+          method: 'DELETE',
+          body: JSON.stringify({ confirmMasterKey }),
+        }, 0);
+        $('deleteTenantDialog').close();
+        state.tenants = state.tenants.filter((t) => t.id !== tenant.id);
+        showToast('[' + tenant.name + '] 사이트가 영구 삭제되었습니다.');
+        if (state.tenants.length > 0) {
+          await selectTenant(state.tenants[0].id);
+        } else {
+          state.selectedTenantId = null;
+          renderTenantSelect();
+          $('tenantWorkspace').classList.add('hidden');
+          $('emptyState').classList.remove('hidden');
+          $('tenantMeta').textContent = '';
+        }
+      } catch (err) {
+        $('deleteTenantError').textContent = err.message;
+        $('deleteTenantError').classList.remove('hidden');
+      }
     });
 
     $('refreshBtn').addEventListener('click', async () => {

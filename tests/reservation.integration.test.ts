@@ -604,5 +604,28 @@ describe('Full Reservation E2E Integration Tests (Real PostgreSQL via PGlite)', 
     expect(ks.body.apiKeys.length).toBeGreaterThanOrEqual(2);
     expect(rs.status).toBe(200);
     expect(rs.body.reservations).toHaveLength(6);
+
+    // 8-9. 예매 사이트(Tenant) 영구 삭제: 암호 불일치 시 403 차단, 일치 시 소속 데이터 포함 완전 삭제
+    const badDeleteTenant = await reqJson(`/v1/platform/tenants/${tenantAId}`, {
+      method: 'DELETE',
+      headers: platformHeaders,
+      body: JSON.stringify({ confirmMasterKey: 'wrong-password' }),
+    });
+    expect(badDeleteTenant.status).toBe(403);
+    expect(badDeleteTenant.body.error.code).toBe('INVALID_CONFIRM_PASSWORD');
+
+    const okDeleteTenant = await reqJson(`/v1/platform/tenants/${tenantAId}`, {
+      method: 'DELETE',
+      headers: platformHeaders,
+      body: JSON.stringify({ confirmMasterKey: MASTER_KEY }),
+    });
+    expect(okDeleteTenant.status).toBe(200);
+    expect(okDeleteTenant.body.deleted).toBe(true);
+    expect(okDeleteTenant.body.id).toBe(tenantAId);
+
+    // 삭제된 사이트의 API 키는 더 이상 동작하지 않고, Tenant B만 남아있음
+    const afterTenants = await reqJson('/v1/platform/tenants', { headers: platformHeaders });
+    expect(afterTenants.body.tenants).toHaveLength(1);
+    expect(afterTenants.body.tenants[0].id).toBe(tenantBId);
   });
 });

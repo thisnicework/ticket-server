@@ -12,7 +12,7 @@ import {
 import { requirePlatformAuth } from '../middleware/auth.js';
 import { cancelReservation } from '../services/reservation.js';
 import type { AppEnv } from '../types.js';
-import { generateApiKey } from '../utils/crypto.js';
+import { generateApiKey, timingSafeEqualStr } from '../utils/crypto.js';
 import { AppError } from '../utils/errors.js';
 import { normalizeName, normalizePhone } from '../utils/phone.js';
 
@@ -192,6 +192,84 @@ platformRouter.openapi(updateTenantRoute, async (c) => {
     allowedOrigins: updated.allowedOrigins,
     isActive: updated.isActive,
     createdAt: updated.createdAt.toISOString(),
+  });
+});
+
+// 3-2. 테넌트(예매 사이트) 삭제 (관리자 암호 재확인 필수)
+const deleteTenantRoute = createRoute({
+  method: 'delete',
+  path: '/tenants/{tenantId}',
+  tags: ['Platform'],
+  summary: '예매 사이트 영구 삭제 (관리자 암호 재입력 필수, 소속 모든 데이터 함께 삭제)',
+  request: {
+    params: z.object({ tenantId: z.string().uuid() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            confirmMasterKey: z.string().min(1, '관리자 암호를 입력해 주세요.'),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: '삭제 완료',
+      content: {
+        'application/json': {
+          schema: z.object({
+            deleted: z.boolean(),
+            id: z.string().uuid(),
+            slug: z.string(),
+            name: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+platformRouter.openapi(deleteTenantRoute, async (c) => {
+  const db = c.get('db');
+  const masterKey = c.get('platformMasterKey');
+  const { tenantId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  if (!timingSafeEqualStr(body.confirmMasterKey.trim(), masterKey)) {
+    throw new AppError(403, 'INVALID_CONFIRM_PASSWORD', '관리자 암호가 일치하지 않습니다.');
+  }
+
+  const deleted = await db.transaction(async (tx) => {
+    const existingRows = await tx
+      .select()
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    const existing = existingRows[0];
+    if (!existing) {
+      throw new AppError(404, 'TENANT_NOT_FOUND', '예매 사이트를 찾을 수 없습니다.');
+    }
+
+    // FK RESTRICT(reservations.schedule_id, reservation_items.ticket_type_id)에 걸리지 않도록
+    // 하위 데이터부터 순서대로 안전하게 삭제
+    await tx.delete(reservationItems).where(eq(reservationItems.tenantId, tenantId));
+    await tx.delete(reservations).where(eq(reservations.tenantId, tenantId));
+    await tx.delete(ticketTypes).where(eq(ticketTypes.tenantId, tenantId));
+    await tx.delete(schedules).where(eq(schedules.tenantId, tenantId));
+    await tx.delete(events).where(eq(events.tenantId, tenantId));
+    await tx.delete(apiKeys).where(eq(apiKeys.tenantId, tenantId));
+    await tx.delete(tenants).where(eq(tenants.id, tenantId));
+
+    return existing;
+  });
+
+  return c.json({
+    deleted: true,
+    id: deleted.id,
+    slug: deleted.slug,
+    name: deleted.name,
   });
 });
 
