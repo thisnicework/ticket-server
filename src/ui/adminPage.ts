@@ -604,20 +604,41 @@ export function renderAdminPage(): string {
       }
     }
 
-    async function api(path, options = {}) {
-      const res = await fetch(path, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + state.masterKey,
-          ...(options.headers || {}),
-        },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error?.message || '요청 실패 (HTTP ' + res.status + ')');
+    async function api(path, options = {}, retries = 1) {
+      let lastErr;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const res = await fetch(path, {
+            ...options,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + state.masterKey,
+              ...(options.headers || {}),
+            },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const err = new Error(data?.error?.message || '요청 실패 (HTTP ' + res.status + ')');
+            err.status = res.status;
+            // 5xx 일시적 서버/DB 오류는 1회 재시도
+            if (res.status >= 500 && attempt < retries) {
+              lastErr = err;
+              await new Promise((r) => setTimeout(r, 400));
+              continue;
+            }
+            throw err;
+          }
+          return data;
+        } catch (err) {
+          lastErr = err;
+          if ((!err.status || err.status >= 500) && attempt < retries) {
+            await new Promise((r) => setTimeout(r, 400));
+            continue;
+          }
+          throw err;
+        }
       }
-      return data;
+      throw lastErr;
     }
 
     async function tryConnect(key) {
@@ -715,21 +736,48 @@ const result = await ticketing.reservations.create({
   items: [{ ticketTypeId: '권종_ID', quantity: 2 }],
 });\`;
 
-      const [overview, keysData, resData] = await Promise.all([
+      $('eventsContainer').innerHTML =
+        '<div class="card" style="text-align:center;color:var(--muted);padding:24px;">데이터를 불러오는 중...</div>';
+
+      const [overviewRes, keysRes, resRes] = await Promise.allSettled([
         api('/v1/platform/tenants/' + tenant.id + '/overview'),
         api('/v1/platform/tenants/' + tenant.id + '/api-keys'),
         api('/v1/platform/tenants/' + tenant.id + '/reservations'),
       ]);
 
-      state.overview = overview;
-      state.apiKeys = keysData.apiKeys;
-      state.reservations = resData.reservations;
+      const errors = [];
 
-      renderEvents();
-      renderScheduleFilter();
-      renderReservations();
-      renderApiKeys();
+      if (overviewRes.status === 'fulfilled') {
+        state.overview = overviewRes.value;
+        renderEvents();
+        renderScheduleFilter();
+      } else {
+        errors.push('행사 현황: ' + overviewRes.reason.message);
+        $('eventsContainer').innerHTML =
+          '<div class="card" style="border-color:#fecaca;background:#fef2f2;color:var(--red);">' +
+          '<strong>데이터를 불러오지 못했습니다.</strong> ' + esc(overviewRes.reason.message) +
+          ' <button type="button" class="btn-sm" id="retryLoadBtn" style="margin-left:8px;">다시 시도</button></div>';
+        $('retryLoadBtn')?.addEventListener('click', () => loadTenantData());
+      }
+
+      if (keysRes.status === 'fulfilled') {
+        state.apiKeys = keysRes.value.apiKeys;
+        renderApiKeys();
+      } else {
+        errors.push('API Key: ' + keysRes.reason.message);
+      }
+
+      if (resRes.status === 'fulfilled') {
+        state.reservations = resRes.value.reservations;
+        renderReservations();
+      } else {
+        errors.push('예매자 명단: ' + resRes.reason.message);
+      }
+
       bindCopyButtons();
+      if (errors.length > 0) {
+        showToast(errors[0], true);
+      }
     }
 
     function bindCopyButtons() {
@@ -1313,7 +1361,14 @@ const result = await ticketing.reservations.create({
       } catch (err) { showToast(err.message, true); }
     });
 
-    $('refreshBtn').addEventListener('click', () => loadTenantData().then(() => showToast('새로고침 완료')));
+    $('refreshBtn').addEventListener('click', async () => {
+      try {
+        await loadTenantData();
+        showToast('새로고침 완료');
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
 
     document.querySelectorAll('.tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1327,9 +1382,16 @@ const result = await ticketing.reservations.create({
     });
 
     if (state.masterKey) {
-      tryConnect(state.masterKey).catch(() => {
-        sessionStorage.removeItem('tp_master_key');
-        state.masterKey = '';
+      tryConnect(state.masterKey).catch((err) => {
+        if (err && err.status === 401) {
+          sessionStorage.removeItem('tp_master_key');
+          state.masterKey = '';
+          $('appView').classList.add('hidden');
+          $('logoutBtn').classList.add('hidden');
+          $('loginView').classList.remove('hidden');
+        } else {
+          showToast('불러오기 오류: ' + (err?.message || '알 수 없는 오류'), true);
+        }
       });
     }
   </script>

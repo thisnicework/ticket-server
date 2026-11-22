@@ -590,5 +590,19 @@ describe('Full Reservation E2E Integration Tests (Real PostgreSQL via PGlite)', 
       customerPhone: '01077778888',
     });
     expect(afterCancelLookup.reservations).toHaveLength(0);
+
+    // 8-8. 어드민 대시보드 초기 로딩 3개 API(overview / api-keys / reservations) 모두 200 정상 반환 검증
+    const [ov, ks, rs] = await Promise.all([
+      reqJson(`/v1/platform/tenants/${tenantAId}/overview`, { headers: platformHeaders }),
+      reqJson(`/v1/platform/tenants/${tenantAId}/api-keys`, { headers: platformHeaders }),
+      reqJson(`/v1/platform/tenants/${tenantAId}/reservations`, { headers: platformHeaders }),
+    ]);
+    expect(ov.status).toBe(200);
+    expect(ov.body.events).toHaveLength(1);
+    expect(ov.body.stats.reservationCount).toBe(6);
+    expect(ks.status).toBe(200);
+    expect(ks.body.apiKeys.length).toBeGreaterThanOrEqual(2);
+    expect(rs.status).toBe(200);
+    expect(rs.body.reservations).toHaveLength(6);
   });
 });
