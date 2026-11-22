@@ -861,7 +861,7 @@ const result = await ticketing.reservations.create({
                             <th>잔여 / 총 수량</th>
                             <th>가격</th>
                             <th>1회 최대</th>
-                            <th>수정</th>
+                            <th>관리</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -884,12 +884,17 @@ const result = await ticketing.reservations.create({
                               <td>\${tt.price === 0 ? '무료' : tt.price.toLocaleString() + '원'}</td>
                               <td>\${tt.maxPerReservation ? tt.maxPerReservation + '매' : '무제한'}</td>
                               <td>
-                                <button type="button" class="btn-sm" data-action="edit-tt"
-                                  data-id="\${tt.id}"
-                                  data-name="\${esc(tt.name)}"
-                                  data-total="\${tt.totalQuantity}"
-                                  data-price="\${tt.price}"
-                                  data-max="\${tt.maxPerReservation ?? ''}">수정</button>
+                                <div class="row">
+                                  <button type="button" class="btn-sm" data-action="edit-tt"
+                                    data-id="\${tt.id}"
+                                    data-name="\${esc(tt.name)}"
+                                    data-total="\${tt.totalQuantity}"
+                                    data-price="\${tt.price}"
+                                    data-max="\${tt.maxPerReservation ?? ''}">수정</button>
+                                  <button type="button" class="btn-danger btn-sm" data-action="delete-tt"
+                                    data-id="\${tt.id}"
+                                    data-name="\${esc(tt.name)}">삭제</button>
+                                </div>
                               </td>
                             </tr>\`;
                           }).join('')}
@@ -995,6 +1000,19 @@ const result = await ticketing.reservations.create({
           form.elements.price.value = btn.dataset.price;
           form.elements.maxPerReservation.value = btn.dataset.max;
           dialog.showModal();
+        });
+      });
+
+      wrap.querySelectorAll('button[data-action="delete-tt"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('[' + btn.dataset.name + '] 권종을 삭제하시겠습니까?\\n(이미 예매 내역이 있는 권종은 삭제되지 않습니다.)')) return;
+          try {
+            await api('/v1/platform/tenants/' + state.selectedTenantId + '/ticket-types/' + btn.dataset.id, {
+              method: 'DELETE',
+            });
+            showToast('권종이 삭제되었습니다.');
+            await loadTenantData();
+          } catch (err) { showToast(err.message, true); }
         });
       });
 

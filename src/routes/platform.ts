@@ -947,6 +947,66 @@ platformRouter.openapi(platformUpdateTicketTypeRoute, async (c) => {
   });
 });
 
+const platformDeleteTicketTypeRoute = createRoute({
+  method: 'delete',
+  path: '/tenants/{tenantId}/ticket-types/{ticketTypeId}',
+  tags: ['Platform'],
+  summary: '특정 티켓 권종 삭제 (예매 내역이 없는 경우에만 삭제 가능)',
+  request: {
+    params: z.object({ tenantId: z.string().uuid(), ticketTypeId: z.string().uuid() }),
+  },
+  responses: {
+    200: {
+      description: '삭제 완료',
+      content: {
+        'application/json': {
+          schema: z.object({ deleted: z.boolean(), id: z.string().uuid() }),
+        },
+      },
+    },
+  },
+});
+
+platformRouter.openapi(platformDeleteTicketTypeRoute, async (c) => {
+  const db = c.get('db');
+  const { tenantId, ticketTypeId } = c.req.valid('param');
+
+  const existingRows = await db
+    .select({ id: ticketTypes.id })
+    .from(ticketTypes)
+    .where(and(eq(ticketTypes.id, ticketTypeId), eq(ticketTypes.tenantId, tenantId)))
+    .limit(1);
+
+  if (!existingRows[0]) {
+    throw new AppError(404, 'TICKET_TYPE_NOT_FOUND', '티켓 권종을 찾을 수 없습니다.');
+  }
+
+  const itemCountRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(reservationItems)
+    .where(
+      and(
+        eq(reservationItems.tenantId, tenantId),
+        eq(reservationItems.ticketTypeId, ticketTypeId),
+      ),
+    );
+
+  const count = itemCountRows[0]?.count ?? 0;
+  if (count > 0) {
+    throw new AppError(
+      409,
+      'TICKET_TYPE_HAS_RESERVATIONS',
+      `이미 ${count}건의 예매 내역이 있는 권종은 삭제할 수 없습니다.`,
+    );
+  }
+
+  await db
+    .delete(ticketTypes)
+    .where(and(eq(ticketTypes.id, ticketTypeId), eq(ticketTypes.tenantId, tenantId)));
+
+  return c.json({ deleted: true, id: ticketTypeId });
+});
+
 // 11. 플랫폼 어드민: 특정 사이트 예매자 명단 조회
 const platformListReservationsRoute = createRoute({
   method: 'get',
