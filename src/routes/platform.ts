@@ -10,6 +10,7 @@ import {
   ticketTypes,
 } from '../db/schema.js';
 import { requirePlatformAuth } from '../middleware/auth.js';
+import { cancelReservation } from '../services/reservation.js';
 import type { AppEnv } from '../types.js';
 import { generateApiKey } from '../utils/crypto.js';
 import { AppError } from '../utils/errors.js';
@@ -1122,6 +1123,42 @@ platformRouter.openapi(platformListReservationsRoute, async (c) => {
       createdAt: reservation.createdAt.toISOString(),
     })),
   });
+});
+
+// 12. 플랫폼 어드민: 예매 강제 취소 (재고 자동 복구)
+const platformCancelReservationRoute = createRoute({
+  method: 'delete',
+  path: '/tenants/{tenantId}/reservations/{reservationId}',
+  tags: ['Platform'],
+  summary: '관리자 예매 취소 (예매 내역 삭제 및 잔여 수량 자동 복구)',
+  request: {
+    params: z.object({
+      tenantId: z.string().uuid(),
+      reservationId: z.string().uuid(),
+    }),
+  },
+  responses: {
+    200: {
+      description: '취소 완료',
+      content: {
+        'application/json': {
+          schema: z.object({
+            cancelled: z.boolean(),
+            id: z.string().uuid(),
+            reservationCode: z.string(),
+            restoredQuantity: z.number().int(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+platformRouter.openapi(platformCancelReservationRoute, async (c) => {
+  const db = c.get('db');
+  const { tenantId, reservationId } = c.req.valid('param');
+  const result = await cancelReservation(db, { tenantId, reservationId });
+  return c.json(result);
 });
 
 export { platformRouter };

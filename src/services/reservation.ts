@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../db/index.js';
 import {
   events,
@@ -340,4 +340,59 @@ export async function lookupReservations(db: Database, input: LookupReservationI
     items: itemsByReservationId.get(reservation.id) ?? [],
     createdAt: reservation.createdAt.toISOString(),
   }));
+}
+
+export async function cancelReservation(
+  db: Database,
+  input: { tenantId: string; reservationId: string },
+) {
+  return await db.transaction(async (tx) => {
+    const existingRows = await tx
+      .select()
+      .from(reservations)
+      .where(
+        and(eq(reservations.id, input.reservationId), eq(reservations.tenantId, input.tenantId)),
+      )
+      .limit(1);
+
+    const reservation = existingRows[0];
+    if (!reservation) {
+      throw new AppError(404, 'RESERVATION_NOT_FOUND', '취소할 예매 내역을 찾을 수 없습니다.');
+    }
+
+    const items = await tx
+      .select()
+      .from(reservationItems)
+      .where(
+        and(
+          eq(reservationItems.tenantId, input.tenantId),
+          eq(reservationItems.reservationId, reservation.id),
+        ),
+      )
+      .orderBy(asc(reservationItems.ticketTypeId));
+
+    const now = new Date();
+    for (const item of items) {
+      await tx
+        .update(ticketTypes)
+        .set({
+          remainingQuantity: sql`LEAST(${ticketTypes.totalQuantity}, ${ticketTypes.remainingQuantity} + ${item.quantity})`,
+          updatedAt: now,
+        })
+        .where(
+          and(eq(ticketTypes.id, item.ticketTypeId), eq(ticketTypes.tenantId, input.tenantId)),
+        );
+    }
+
+    await tx
+      .delete(reservations)
+      .where(and(eq(reservations.id, reservation.id), eq(reservations.tenantId, input.tenantId)));
+
+    return {
+      cancelled: true,
+      id: reservation.id,
+      reservationCode: reservation.reservationCode,
+      restoredQuantity: reservation.totalQuantity,
+    };
+  });
 }

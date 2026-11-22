@@ -8,6 +8,7 @@ import {
   ticketTypes,
 } from '../db/schema.js';
 import { requireTenantAuth } from '../middleware/auth.js';
+import { cancelReservation } from '../services/reservation.js';
 import type { AppEnv } from '../types.js';
 import { AppError } from '../utils/errors.js';
 import { normalizeName, normalizePhone } from '../utils/phone.js';
@@ -658,6 +659,39 @@ adminRouter.openapi(listAdminReservationsRoute, async (c) => {
       createdAt: reservation.createdAt.toISOString(),
     })),
   });
+});
+
+const cancelAdminReservationRoute = createRoute({
+  method: 'delete',
+  path: '/reservations/{reservationId}',
+  tags: ['Admin'],
+  summary: '관리자 예매 취소 (잔여 수량 자동 복구)',
+  request: {
+    params: z.object({ reservationId: z.string().uuid() }),
+  },
+  responses: {
+    200: {
+      description: '취소 완료',
+      content: {
+        'application/json': {
+          schema: z.object({
+            cancelled: z.boolean(),
+            id: z.string().uuid(),
+            reservationCode: z.string(),
+            restoredQuantity: z.number().int(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+adminRouter.openapi(cancelAdminReservationRoute, async (c) => {
+  const db = c.get('db');
+  const tenant = c.get('tenant')!;
+  const { reservationId } = c.req.valid('param');
+  const result = await cancelReservation(db, { tenantId: tenant.id, reservationId });
+  return c.json(result);
 });
 
 export { adminRouter };

@@ -387,6 +387,7 @@ export function renderAdminPage(): string {
                     <th>선택 권종</th>
                     <th>총 수량</th>
                     <th>예매 일시</th>
+                    <th>관리</th>
                   </tr>
                 </thead>
                 <tbody id="reservationsTbody"></tbody>
@@ -462,6 +463,19 @@ export function renderAdminPage(): string {
       </div>
     </main>
   </div>
+
+  <!-- 예매 취소 확인 다이얼로그 -->
+  <dialog id="cancelReservationDialog">
+    <h3>정말 예매를 취소하시겠습니까?</h3>
+    <div id="cancelReservationSummary" style="background:var(--sub-bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;"></div>
+    <p class="sub-text" style="color:var(--red);margin:0 0 16px;">
+      취소된 예매 내역은 삭제되며 되돌릴 수 없습니다. 차감되었던 티켓 수량은 자동으로 복구됩니다.
+    </p>
+    <div class="row" style="justify-content:flex-end;">
+      <button type="button" id="closeCancelDialogBtn">닫기</button>
+      <button type="button" id="confirmCancelReservationBtn" class="btn-danger" style="background:var(--red);color:#fff;border-color:var(--red);">예매 취소 확정</button>
+    </div>
+  </dialog>
 
   <!-- 회차 수정 다이얼로그 (브라우저 기본 dialog) -->
   <dialog id="editScheduleDialog">
@@ -1086,7 +1100,7 @@ const result = await ticketing.reservations.create({
 
       const tbody = $('reservationsTbody');
       if (state.reservations.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px;">조회된 예매 내역이 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px;">조회된 예매 내역이 없습니다.</td></tr>';
         return;
       }
       tbody.innerHTML = state.reservations.map((r) => \`
@@ -1098,9 +1112,48 @@ const result = await ticketing.reservations.create({
           <td>\${r.items.map((i) => esc(i.ticketTypeName) + ' × ' + i.quantity).join(', ')}</td>
           <td><strong>\${r.totalQuantity}매</strong></td>
           <td class="sub-text">\${fmtDate(r.createdAt)}</td>
+          <td>
+            <button type="button" class="btn-danger btn-sm" data-action="cancel-res" data-id="\${r.id}">취소</button>
+          </td>
         </tr>
       \`).join('');
+
+      tbody.querySelectorAll('button[data-action="cancel-res"]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = state.reservations.find((r) => r.id === btn.dataset.id);
+          if (!target) return;
+          state.pendingCancelReservationId = target.id;
+          $('cancelReservationSummary').innerHTML =
+            '<div><strong>예매번호:</strong> <code>' + esc(target.reservationCode) + '</code></div>' +
+            '<div><strong>행사 / 회차:</strong> ' + esc(target.eventTitle) + ' (' + fmtDate(target.scheduleStartsAt) + ')</div>' +
+            '<div><strong>예매자:</strong> ' + esc(target.customerName) + ' · ' + esc(fmtPhone(target.customerPhone)) + '</div>' +
+            '<div><strong>취소 수량:</strong> ' + target.items.map((i) => esc(i.ticketTypeName) + ' × ' + i.quantity).join(', ') + ' (총 ' + target.totalQuantity + '매)</div>';
+          $('cancelReservationDialog').showModal();
+        });
+      });
     }
+
+    $('closeCancelDialogBtn').addEventListener('click', () => {
+      state.pendingCancelReservationId = null;
+      $('cancelReservationDialog').close();
+    });
+
+    $('confirmCancelReservationBtn').addEventListener('click', async () => {
+      if (!state.pendingCancelReservationId) return;
+      const targetId = state.pendingCancelReservationId;
+      try {
+        const res = await api(
+          '/v1/platform/tenants/' + state.selectedTenantId + '/reservations/' + targetId,
+          { method: 'DELETE' },
+        );
+        state.pendingCancelReservationId = null;
+        $('cancelReservationDialog').close();
+        showToast('예매(' + res.reservationCode + ')를 취소하고 ' + res.restoredQuantity + '매 수량을 복구했습니다.');
+        await loadTenantData();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
 
     async function searchReservations() {
       try {

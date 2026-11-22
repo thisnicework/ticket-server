@@ -566,5 +566,29 @@ describe('Full Reservation E2E Integration Tests (Real PostgreSQL via PGlite)', 
     });
     expect(adminList.status).toBe(200);
     expect(adminList.body.reservations).toHaveLength(7);
+
+    // 8-7. 관리자 예매 취소 -> 예매 내역 삭제 및 잔여 수량 자동 복구 검증
+    const cancelRes = await reqJson(
+      `/v1/platform/tenants/${tenantAId}/reservations/${sdkCreated.id}`,
+      { method: 'DELETE', headers: platformHeaders },
+    );
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.cancelled).toBe(true);
+    expect(cancelRes.body.restoredQuantity).toBe(1);
+
+    // 잔여 수량이 12 -> 13으로 정확히 복구되었는지 & 비회원 조회에서 사라졌는지 확인
+    const afterCancelDetail = await reqJson(`/v1/events/${eventAId}`, {
+      headers: { 'X-API-Key': tenantAPubKey },
+    });
+    const afterCancelReg = afterCancelDetail.body.schedules
+      .find((s: any) => s.id === openScheduleId)
+      .ticketTypes.find((t: any) => t.id === regularTicketId);
+    expect(afterCancelReg.remainingQuantity).toBe(13);
+
+    const afterCancelLookup = await sdk.reservations.lookup({
+      customerName: 'SDK예매자',
+      customerPhone: '01077778888',
+    });
+    expect(afterCancelLookup.reservations).toHaveLength(0);
   });
 });
