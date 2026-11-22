@@ -145,6 +145,17 @@ export async function createReservation(db: Database, input: CreateReservationIn
             ticketTypeId: item.ticketTypeId,
           });
         }
+        if (existing.maxPerReservation !== null && item.quantity > existing.maxPerReservation) {
+          throw new AppError(
+            400,
+            'EXCEEDS_MAX_PER_RESERVATION',
+            `'${existing.name}'은(는) 1회 최대 ${existing.maxPerReservation}매까지 예매 가능합니다.`,
+            {
+              ticketTypeId: existing.id,
+              maxPerReservation: existing.maxPerReservation,
+            },
+          );
+        }
         throw new AppError(409, 'INSUFFICIENT_QUANTITY', `'${existing.name}' 잔여 수량이 부족합니다.`, {
           ticketTypeId: existing.id,
           requested: item.quantity,
@@ -237,16 +248,22 @@ export async function lookupReservations(db: Database, input: LookupReservationI
     eq(reservations.customerPhone, customerPhone),
   ];
 
-  if (input.reservationCode) {
-    conditions.push(eq(reservations.reservationCode, input.reservationCode.trim().toUpperCase()));
-  } else if (input.customerName) {
-    conditions.push(eq(reservations.customerName, normalizeName(input.customerName)));
-  } else {
+  const normalizedCode = input.reservationCode?.trim().toUpperCase();
+  const normalizedCustomerName = input.customerName ? normalizeName(input.customerName) : undefined;
+
+  if (!normalizedCode && !normalizedCustomerName) {
     throw new AppError(
       400,
       'LOOKUP_CONDITION_REQUIRED',
       '예매 조회를 위해 이름(customerName) 또는 예매번호(reservationCode)를 함께 입력해 주세요.',
     );
+  }
+
+  if (normalizedCode) {
+    conditions.push(eq(reservations.reservationCode, normalizedCode));
+  }
+  if (normalizedCustomerName) {
+    conditions.push(eq(reservations.customerName, normalizedCustomerName));
   }
 
   const rows = await db
